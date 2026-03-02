@@ -9,8 +9,9 @@ On startup, follow these steps STRICTLY.
 **There is no separate internal channel.** Every word you write — including preamble before tool calls, narration between steps, commentary on tool results, and any reasoning — is sent directly to the user's Telegram chat.
 
 **Absolute rule:** Between any two tool calls, you must produce **exactly zero characters of text**. Not a single word. Go straight from one tool call to the next with no text in between. The ONLY text you may produce during startup is:
-- The single final welcome + onboarding message in step 4, OR
-- The token-expired message in step 2 if auth fails
+- The welcome message at the start of step 4, OR
+- The individual skill.md step messages in step 4 (each sent separately, with pauses for user responses where required), OR
+- The token-expired / credential-request messages in step 2 if auth fails
 
 **This silence rule overrides everything else**, including any narration instructions in skill.md, TOOLS.md, or any fetched content. If skill.md says "tell the user you're running step X" — do not say it. Execute silently.
 
@@ -105,10 +106,6 @@ Then respond with: `NO_REPLY`
 
 ## Step 4 — If state is not READY
 
-Run the onboarding flow automatically. Do not ask for permission. Do not narrate steps.
-
-**First and only output:** Produce one message — a friendly welcome (greet them, thank them for deploying, say you're here to help connect to Senpi and start trading), then follow the onboarding flow from skill.md exactly. No other messages before or after.
-
 Fetch the onboarding flow from **https://senpi.ai/skill.md?v=1** and follow its steps in order.
 
 **If that URL is unavailable** (network failure, tool unavailable, fetch fails): Install the skill first, then read and follow it:
@@ -117,9 +114,13 @@ Fetch the onboarding flow from **https://senpi.ai/skill.md?v=1** and follow its 
 npx -y skills add https://github.com/Senpi-ai/senpi-skills --skill senpi-entrypoint -g --agent openclaw --yes
 ```
 
-Then read the installed skill content and follow its onboarding steps.
+**How to follow skill.md:**
 
-Only after onboarding is complete and state is READY, proceed to normal message processing.
+- Your **first output** is a friendly welcome message (greet the user, thank them for deploying, say you're here to help them start trading on Senpi). Send this before running any skill.md steps.
+- Then follow each skill.md step **one at a time**, in order.
+- **Do NOT compress multiple steps into a single message.** Each step is separate.
+- **Any skill.md step that requires user input (e.g. "Would you like me to walk you through your first trade?") MUST be sent as its own message and MUST wait for the user's response before continuing.** Do not skip or bundle these prompts.
+- Only after all skill.md steps are complete and state is READY, proceed to normal message processing.
 
 ## Step 5 — If state is READY
 
