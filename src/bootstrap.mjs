@@ -141,10 +141,26 @@ function patchOpenClawJson() {
     // ── OpenAI Codex (subscription/OAuth) ──
     "openai-codex/gpt-5.3-codex": { alias: "GPT-5.3 Codex" },
     // ── Google Gemini ──
-    "google/gemini-3-pro-preview": { alias: "Gemini 3 Pro" },
+    "google/gemini-3.1-pro-preview": { alias: "Gemini 3.1 Pro" },
     "google/gemini-3-flash-preview": { alias: "Gemini 3 Flash" },
+    "google/gemini-3.1-flash-lite-preview": { alias: "Gemini 3.1 Flash Lite" },
     "google/gemini-2.5-pro": { alias: "Gemini 2.5 Pro" },
     "google/gemini-2.5-flash": { alias: "Gemini 2.5 Flash" },
+    "google/gemini-2.5-flash-lite": { alias: "Gemini 2.5 Flash Lite" },
+    // ── Google Gemini (Specialized) ──
+    "google/gemini-2.5-flash-image": { alias: "Gemini 2.5 Flash Image" },
+    "google/gemini-3.1-flash-image-preview": { alias: "Gemini 3.1 Flash Image" },
+    "google/gemini-3-pro-image-preview": { alias: "Gemini 3 Pro Image" },
+    "google/gemini-2.5-flash-native-audio-preview-12-2025": { alias: "Gemini 2.5 Flash Audio" },
+    "google/gemini-2.5-flash-preview-tts": { alias: "Gemini 2.5 Flash TTS" },
+    "google/gemini-2.5-pro-preview-tts": { alias: "Gemini 2.5 Pro TTS" },
+    "google/gemini-2.5-computer-use-preview-10-2025": { alias: "Gemini 2.5 Computer Use" },
+    "google/gemini-embedding-001": { alias: "Gemini Embedding" },
+    "google/gemini-robotics-er-1.5-preview": { alias: "Gemini Robotics ER" },
+    "google/deep-research-pro-preview-12-2025": { alias: "Deep Research Pro" },
+    "google/imagen-4": { alias: "Imagen 4" },
+    "google/veo-3.1-generate-preview": { alias: "Veo 3.1" },
+    "google/lyria-realtime-exp": { alias: "Lyria Realtime" },
     // ── xAI ──
     "xai/grok-3": { alias: "Grok 3" },
     "xai/grok-3-mini": { alias: "Grok 3 Mini" },
@@ -208,7 +224,7 @@ function patchOpenClawJson() {
   const PROVIDER_DEFAULTS = [
     { key: "ANTHROPIC_API_KEY", model: "anthropic/claude-opus-4-6" },
     { key: "OPENAI_API_KEY", model: "openai/gpt-5.2" },
-    { key: "GEMINI_API_KEY", model: "google/gemini-3-pro-preview" },
+    { key: "GEMINI_API_KEY", model: "google/gemini-3.1-pro-preview" },
     { key: "XAI_API_KEY", model: "xai/grok-3" },
     { key: "MISTRAL_API_KEY", model: "mistral/mistral-large-latest" },
     { key: "GROQ_API_KEY", model: "groq/llama-3.3-70b" },
@@ -225,8 +241,8 @@ function patchOpenClawJson() {
   const AI_PROVIDER_MODEL_MAP = {
     anthropic: "anthropic/claude-opus-4-6",
     openai: "openai/gpt-5.2",
-    gemini: "google/gemini-3-pro-preview",
-    google: "google/gemini-3-pro-preview",
+    gemini: "google/gemini-3.1-pro-preview",
+    google: "google/gemini-3.1-pro-preview",
     openrouter: "openrouter/anthropic/claude-sonnet-4-5",
     moonshot: "moonshot/kimi-k2.5",
     zai: "zai/glm-5",
