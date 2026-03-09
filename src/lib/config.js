@@ -57,6 +57,7 @@ export const PROVIDER_TO_AUTH_CHOICE = {
   moonshot: "moonshot-api-key",
   "kimi-code": "kimi-code-api-key",
   zai: "zai-api-key",
+  venice: "venice-api-key",
   minimax: "minimax-api",
   synthetic: "synthetic-api-key",
   "opencode-zen": "opencode-zen",

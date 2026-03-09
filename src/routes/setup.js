@@ -118,6 +118,12 @@ const AUTH_GROUPS = [
     ],
   },
   {
+    value: "venice",
+    label: "Venice AI",
+    hint: "Private & uncensored models",
+    options: [{ value: "venice-api-key", label: "Venice AI API key" }],
+  },
+  {
     value: "synthetic",
     label: "Synthetic",
     hint: "Anthropic-compatible (multi-model)",

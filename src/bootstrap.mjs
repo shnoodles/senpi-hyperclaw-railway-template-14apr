@@ -256,6 +256,7 @@ function patchOpenClawJson() {
     openrouter: "openrouter/anthropic/claude-sonnet-4-5",
     moonshot: "moonshot/kimi-k2.5",
     zai: "zai/glm-5",
+    venice: "venice/llama-3.3-70b",
     mistral: "mistral/mistral-large-latest",
     minimax: "minimax/MiniMax-M2.1",
   };

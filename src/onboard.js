@@ -284,6 +284,7 @@ export function buildOnboardArgs(payload, gatewayToken) {
       "gemini-api-key": "--gemini-api-key",
       "google-vertex-api-key": "--google-vertex-api-key",
       "zai-api-key": "--zai-api-key",
+      "venice-api-key": "--venice-api-key",
       "minimax-api": "--minimax-api-key",
       "minimax-api-lightning": "--minimax-api-key",
       "synthetic-api-key": "--synthetic-api-key",
