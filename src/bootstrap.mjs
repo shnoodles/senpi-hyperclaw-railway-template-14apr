@@ -145,6 +145,11 @@ function patchOpenClawJson() {
     "google/gemini-3-flash-preview": { alias: "Gemini 3 Flash" },
     "google/gemini-2.5-pro": { alias: "Gemini 2.5 Pro" },
     "google/gemini-2.5-flash": { alias: "Gemini 2.5 Flash" },
+    // ── Google Vertex AI ──
+    "google-vertex/gemini-3-pro-preview": { alias: "Gemini 3 Pro (Vertex)" },
+    "google-vertex/gemini-3-flash-preview": { alias: "Gemini 3 Flash (Vertex)" },
+    "google-vertex/gemini-2.5-pro": { alias: "Gemini 2.5 Pro (Vertex)" },
+    "google-vertex/gemini-2.5-flash": { alias: "Gemini 2.5 Flash (Vertex)" },
     // ── xAI ──
     "xai/grok-3": { alias: "Grok 3" },
     "xai/grok-3-mini": { alias: "Grok 3 Mini" },
@@ -228,6 +233,7 @@ function patchOpenClawJson() {
     { key: "ANTHROPIC_API_KEY", model: "anthropic/claude-opus-4-6" },
     { key: "OPENAI_API_KEY", model: "openai/gpt-5.2" },
     { key: "GEMINI_API_KEY", model: "google/gemini-3-pro-preview" },
+    { key: "GOOGLE_VERTEX_API_KEY", model: "google-vertex/gemini-3-pro-preview" },
     { key: "XAI_API_KEY", model: "xai/grok-3" },
     { key: "MISTRAL_API_KEY", model: "mistral/mistral-large-latest" },
     { key: "GROQ_API_KEY", model: "groq/llama-3.3-70b" },
@@ -246,6 +252,7 @@ function patchOpenClawJson() {
     openai: "openai/gpt-5.2",
     gemini: "google/gemini-3-pro-preview",
     google: "google/gemini-3-pro-preview",
+    "google-vertex": "google-vertex/gemini-3-pro-preview",
     openrouter: "openrouter/anthropic/claude-sonnet-4-5",
     moonshot: "moonshot/kimi-k2.5",
     zai: "zai/glm-5",

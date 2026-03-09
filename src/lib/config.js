@@ -52,6 +52,7 @@ export const PROVIDER_TO_AUTH_CHOICE = {
   openrouter: "openrouter-api-key",
   gemini: "gemini-api-key",
   google: "gemini-api-key",
+  "google-vertex": "google-vertex-api-key",
   "ai-gateway": "ai-gateway-api-key",
   moonshot: "moonshot-api-key",
   "kimi-code": "kimi-code-api-key",

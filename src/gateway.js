@@ -314,13 +314,13 @@ export async function ensureGatewayRunning(gatewayToken) {
   if (!gatewayStarting) {
     gatewayStarting = (async () => {
       await startGateway(gatewayToken);
-      startAutoApprovalLoop();
       const ready = await waitForGatewayReady({
         timeoutMs: GATEWAY_READY_TIMEOUT_MS,
       });
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
+      startAutoApprovalLoop();
       checkMcpHealth();
     })().finally(() => {
       gatewayStarting = null;

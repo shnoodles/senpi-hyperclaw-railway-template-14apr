@@ -282,6 +282,7 @@ export function buildOnboardArgs(payload, gatewayToken) {
       "moonshot-api-key": "--moonshot-api-key",
       "kimi-code-api-key": "--kimi-code-api-key",
       "gemini-api-key": "--gemini-api-key",
+      "google-vertex-api-key": "--google-vertex-api-key",
       "zai-api-key": "--zai-api-key",
       "minimax-api": "--minimax-api-key",
       "minimax-api-lightning": "--minimax-api-key",
