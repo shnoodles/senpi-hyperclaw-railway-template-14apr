@@ -170,6 +170,13 @@ function patchOpenClawJson() {
 
   const merged = deepMerge(cfg, patch);
 
+  // Ensure plugins.load.paths includes our extension dir (discovery scans this first per docs)
+  const loadPath = "/opt/openclaw-extensions";
+  merged.plugins = merged.plugins || {};
+  merged.plugins.load = merged.plugins.load || {};
+  const paths = Array.isArray(merged.plugins.load.paths) ? merged.plugins.load.paths : [];
+  if (!paths.includes(loadPath)) merged.plugins.load.paths = [...paths, loadPath];
+
   // If trading-runtime is disabled, remove it so config stays valid when plugin is not in image
   if (process.env.SENPI_TRADING_RUNTIME_ENABLED === "false" && merged.plugins?.entries) {
     delete merged.plugins.entries["trading-runtime"];

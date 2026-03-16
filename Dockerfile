@@ -77,12 +77,15 @@ RUN npm install -g mcporter@0.7.3 mcp-remote@0.1.38
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
 
-# Install senpi trading-runtime in an isolated dir (openclaw tree is pnpm-based; npm install there fails), then copy into /openclaw/node_modules so the gateway can resolve it
+# Install senpi trading-runtime so OpenClaw discovers it. OpenClaw discovers plugins from
+# (1) plugins.load.paths, (2) workspace ~/.openclaw/extensions, (3) bundled /extensions/*.
+# We use (1) so we don't rely on how "bundled" path is resolved: put plugin in
+# /opt/openclaw-extensions/trading-runtime and bootstrap adds that dir to plugins.load.paths.
 RUN cd /tmp \
   && echo '{"name":"plugin-install","dependencies":{"@senpi/trading-runtime":"latest"}}' > package.json \
   && npm install --omit=dev \
-  && mkdir -p /openclaw/node_modules/@senpi \
-  && cp -r node_modules/@senpi/trading-runtime /openclaw/node_modules/@senpi/ \
+  && mkdir -p /opt/openclaw-extensions \
+  && cp -r node_modules/@senpi/trading-runtime /opt/openclaw-extensions/trading-runtime \
   && rm -rf /tmp/node_modules /tmp/package.json /tmp/package-lock.json
 
 # Vendor mcporter skill from the same OpenClaw ref used in build stage (no extra git clone)
