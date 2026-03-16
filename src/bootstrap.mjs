@@ -15,6 +15,9 @@ const MCPORTER_PATH =
   process.env.MCPORTER_CONFIG ||
   path.join(STATE_DIR, "config", "mcporter.json");
 
+/** Persisted Senpi token so plugin and MCP can be configured independently (env or file). */
+const SENPI_TOKEN_FILE = path.join(STATE_DIR, "config", "senpi.token");
+
 const IMAGE_SKILLS_DIR = "/opt/openclaw-skills";
 const STATE_SKILLS_DIR = path.join(STATE_DIR, "skills");
 
@@ -29,6 +32,41 @@ function exists(p) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Resolve Senpi token: env first, then persisted file, then mcporter.json for backward compat.
+ * MCP is the older feature (token was only in mcporter.json); plugin is newer. We don't assume
+ * both are present — so canonical store is senpi.token. If we find token in mcporter.json only,
+ * we migrate it to senpi.token so future runs don't depend on MCP config.
+ */
+function resolveSenpiToken() {
+  const fromEnv = process.env.SENPI_AUTH_TOKEN?.trim();
+  if (fromEnv) return fromEnv;
+  if (exists(SENPI_TOKEN_FILE)) {
+    try {
+      return fs.readFileSync(SENPI_TOKEN_FILE, "utf8").trim();
+    } catch {
+      // fall through to backward-compat
+    }
+  }
+  // Backward compat: existing installs may have token only in mcporter.json (MCP-only setup)
+  if (exists(MCPORTER_PATH)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(MCPORTER_PATH, "utf8"));
+      const token = config?.mcpServers?.senpi?.env?.SENPI_AUTH_TOKEN;
+      const fromMcp = typeof token === "string" ? token.trim() : "";
+      if (fromMcp) {
+        ensureDir(path.dirname(SENPI_TOKEN_FILE));
+        fs.writeFileSync(SENPI_TOKEN_FILE, fromMcp);
+        console.log("[bootstrap] Migrated Senpi token from mcporter.json to config/senpi.token");
+        return fromMcp;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return "";
 }
 
 // Recursive copy (Node 22 supports fs.cpSync)
@@ -105,6 +143,13 @@ function patchOpenClawJson() {
     plugins: {
       entries: {
         telegram: { enabled: true },
+        "trading-runtime": {
+          enabled: true,
+          config: {
+            stateDir: path.join(STATE_DIR, "senpi-state"),
+            apiKey: resolveSenpiToken() || undefined,
+          },
+        },
       },
     },
     hooks: {
@@ -153,13 +198,14 @@ function patchOpenClawJson() {
     delete merged.tools.fs;
   }
   fs.writeFileSync(cfgPath, JSON.stringify(merged, null, 2));
+  console.log("[bootstrap] trading-runtime plugin configured (stateDir:", path.join(STATE_DIR, "senpi-state"), ")");
 }
 
 function writeMcporterConfig() {
   ensureDir(path.dirname(MCPORTER_PATH));
 
   const mcpUrl = process.env.SENPI_MCP_URL || "https://mcp.dev.senpi.ai/mcp";
-  const senpiToken = process.env.SENPI_AUTH_TOKEN?.trim() || "";
+  const senpiToken = resolveSenpiToken();
 
   // The senpi server entry we always want present
   const senpiEntry = {

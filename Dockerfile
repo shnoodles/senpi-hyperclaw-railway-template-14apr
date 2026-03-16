@@ -74,6 +74,9 @@ RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 # Install MCPorter CLI so the mcporter skill can execute it (pinned for reproducible builds)
 RUN npm install -g mcporter@0.7.3 mcp-remote@0.1.38
 
+# Install senpi trading-runtime plugin
+RUN npm install -g @senpi/trading-runtime
+
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
 
