@@ -329,6 +329,22 @@ function installTradingRecipePluginIfNeeded() {
   const pluginDir = path.join(STATE_DIR, "extensions", "trading-recipe");
   if (exists(pluginDir)) return;
 
+  // trading-recipe depends on the llm-task plugin surface.
+  // Enable it before installing trading-recipe to avoid partial installs.
+  const enableLlmTask = spawnSync("openclaw", ["plugins", "enable", "llm-task"], {
+    env: { ...process.env, OPENCLAW_STATE_DIR: STATE_DIR },
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+  if (enableLlmTask.status !== 0) {
+    console.error(
+      "[bootstrap] openclaw plugins enable llm-task failed:",
+      enableLlmTask.stderr || enableLlmTask.stdout
+    );
+    // Continue; failing to enable llm-task should not necessarily block
+    // the wrapper boot in environments that already have it enabled.
+  }
+
   ensureDir(path.join(STATE_DIR, "extensions"));
   const result = spawnSync(
     "openclaw",
