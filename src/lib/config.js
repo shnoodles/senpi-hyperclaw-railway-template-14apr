@@ -98,6 +98,8 @@ export function resolveEffectiveApiKey() {
   return "";
 }
 
+export const TELEGRAM_CHAT_ID_FILE = path.join(STATE_DIR, "telegram-chat-id");
+
 export function configPath() {
   return (
     process.env.OPENCLAW_CONFIG_PATH?.trim() ||

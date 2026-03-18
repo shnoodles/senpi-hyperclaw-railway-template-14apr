@@ -14,6 +14,8 @@ import {
   AI_API_KEY,
   PROVIDER_TO_AUTH_CHOICE,
   resolveEffectiveApiKey,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_USERNAME,
 } from "./lib/config.js";
 import { resolveGatewayToken } from "./lib/auth.js";
 import { getGatewayProcess, restartGateway } from "./gateway.js";
@@ -26,6 +28,7 @@ import {
   AUTO_ONBOARD_FINGERPRINT_FILE,
 } from "./onboard.js";
 import { bootstrapOpenClaw } from "./bootstrap.mjs";
+import { resolveTelegramUserId } from "./lib/telegramId.js";
 import { createSetupRouter } from "./routes/setup.js";
 import {
   controlUiMiddleware,
@@ -136,6 +139,25 @@ const server = app.listen(PORT, () => {
       console.log("[wrapper] → Set AI_PROVIDER + AI_API_KEY, or set SETUP_PASSWORD to use the setup wizard");
     }
     console.log("[wrapper] ================================================================");
+  }
+
+  // After gateway is running, try to resolve Telegram username → numeric ID
+  // and re-patch openclaw.json if we get a new ID
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_USERNAME) {
+    resolveTelegramUserId(TELEGRAM_BOT_TOKEN, TELEGRAM_USERNAME)
+      .then((id) => {
+        if (id) {
+          try {
+            bootstrapOpenClaw();
+            console.log(`[telegram] Async ID resolution succeeded (${id}), config re-patched`);
+          } catch (e) {
+            console.warn(`[telegram] Bootstrap re-patch after ID resolution failed: ${e.message}`);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn(`[telegram] Async ID resolution failed: ${err.message}`);
+      });
   }
 });
 

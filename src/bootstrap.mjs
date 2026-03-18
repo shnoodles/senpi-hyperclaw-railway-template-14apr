@@ -5,6 +5,7 @@ import {
   PROVIDER_DEFAULTS,
   AI_PROVIDER_MODEL_MAP,
 } from "./lib/models.js";
+import { readCachedTelegramId } from "./lib/telegramId.js";
 
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR || "/data/.openclaw";
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR || "/data/workspace";
@@ -94,13 +95,28 @@ function patchOpenClawJson() {
       trustedProxies: ["127.0.0.1", "::1"],
     },
     channels: {
-      telegram: {
-        enabled: true,
-        dmPolicy: "open",
-        allowFrom: ["*"],
-        streamMode: "block",
-        blockStreaming: true,
-      },
+      telegram: (() => {
+        const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME?.trim() || "";
+        const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+        // Resolve numeric ID: env is numeric, or read from cache file
+        let numericId = /^\d+$/.test(TELEGRAM_USERNAME) ? TELEGRAM_USERNAME : readCachedTelegramId();
+        const base = {
+          enabled: true,
+          streamMode: "block",
+          blockStreaming: true,
+        };
+        if (numericId) {
+          base.dmPolicy = "allowlist";
+          base.allowFrom = [numericId];
+          console.log(`[bootstrap] Telegram dmPolicy: allowlist (ID: ${numericId})`);
+        } else {
+          base.dmPolicy = "pairing";
+          if (TELEGRAM_BOT_TOKEN) {
+            console.warn("[bootstrap] Telegram: no cached user ID — using dmPolicy 'pairing' as safe fallback. Send /start to the bot and redeploy.");
+          }
+        }
+        return base;
+      })(),
     },
     plugins: {
       entries: {

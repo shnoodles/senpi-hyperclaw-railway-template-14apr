@@ -25,6 +25,7 @@ import { tokenLogSafe } from "./lib/auth.js";
 import { runCmd } from "./lib/runCmd.js";
 import { clawArgs, ensureGatewayRunning, restartGateway } from "./gateway.js";
 import { bootstrapOpenClaw } from "./bootstrap.mjs";
+import { readCachedTelegramId, writeCachedTelegramId } from "./lib/telegramId.js";
 
 const AUTO_ONBOARD_FINGERPRINT_FILE = path.join(
   STATE_DIR,
@@ -118,6 +119,7 @@ export async function resolveTelegramAndWriteUserMd() {
     if (TELEGRAM_USERNAME) {
       if (/^\d+$/.test(TELEGRAM_USERNAME)) {
         chatId = TELEGRAM_USERNAME;
+        writeCachedTelegramId(chatId);
         console.log(
           `[telegram] Using TELEGRAM_USERNAME (numeric): ${chatId}`
         );
@@ -143,6 +145,7 @@ export async function resolveTelegramAndWriteUserMd() {
         }
 
         if (chatId) {
+          writeCachedTelegramId(chatId);
           console.log(`[telegram] Resolved @${username} → chat ID ${chatId}`);
         } else if (existingChatId) {
           chatId = existingChatId;
@@ -174,6 +177,7 @@ export async function resolveTelegramAndWriteUserMd() {
           update.chat_member?.chat;
         if (chat?.id) {
           chatId = String(chat.id);
+          writeCachedTelegramId(chatId);
           const from =
             update.message?.from ||
             update.edited_message?.from ||
@@ -467,15 +471,18 @@ export async function autoOnboard(gatewayToken) {
           "[auto-onboard] Telegram not supported by this build, skipping"
         );
       } else {
+        const resolvedId = readCachedTelegramId();
         const cfgObj = {
           enabled: true,
-          dmPolicy: "open",
-          allowFrom: ["*"],
+          dmPolicy: resolvedId ? "allowlist" : "pairing",
+          ...(resolvedId ? { allowFrom: [resolvedId] } : {}),
           botToken: TELEGRAM_BOT_TOKEN,
           groupPolicy: "allowlist",
           streamMode: "block",
           blockStreaming: true,
         };
+        console.log(`[auto-onboard] Telegram dmPolicy: ${cfgObj.dmPolicy}${resolvedId ? ` (ID: ${resolvedId})` : " (no cached ID, using pairing fallback)"}`);
+
         const set = await runCmd(
           OPENCLAW_NODE,
           clawArgs([

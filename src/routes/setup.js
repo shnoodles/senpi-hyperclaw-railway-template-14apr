@@ -28,6 +28,7 @@ import {
   isOnboardingInProgress,
 } from "../onboard.js";
 import { bootstrapOpenClaw } from "../bootstrap.mjs";
+import { readCachedTelegramId } from "../lib/telegramId.js";
 
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || "";
 const requireSetupAuth = createRequireSetupAuth(SETUP_PASSWORD);
@@ -345,9 +346,11 @@ export function createSetupRouter() {
               "\n[telegram] skipped (this openclaw build does not list telegram in `channels add --help`)\n";
           } else {
             const token = payload.telegramToken.trim();
+            const resolvedId = readCachedTelegramId();
             const cfgObj = {
               enabled: true,
-              dmPolicy: "pairing",
+              dmPolicy: resolvedId ? "allowlist" : "pairing",
+              ...(resolvedId ? { allowFrom: [resolvedId] } : {}),
               botToken: token,
               groupPolicy: "allowlist",
               streamMode: "block",
