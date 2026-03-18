@@ -347,10 +347,18 @@ export function createSetupRouter() {
           } else {
             const token = payload.telegramToken.trim();
             const resolvedId = readCachedTelegramId();
+            let existingAllowFrom = [];
+            try {
+              const existingCfg = JSON.parse(fs.readFileSync(configPath(), "utf8")).channels?.telegram;
+              existingAllowFrom = Array.isArray(existingCfg?.allowFrom) ? existingCfg.allowFrom : [];
+            } catch {}
+            const mergedAllowFrom = resolvedId
+              ? [...new Set([...existingAllowFrom, resolvedId])]
+              : existingAllowFrom;
             const cfgObj = {
               enabled: true,
-              dmPolicy: resolvedId ? "allowlist" : "pairing",
-              ...(resolvedId ? { allowFrom: [resolvedId] } : {}),
+              dmPolicy: mergedAllowFrom.length > 0 ? "allowlist" : "pairing",
+              ...(mergedAllowFrom.length > 0 ? { allowFrom: mergedAllowFrom } : {}),
               botToken: token,
               groupPolicy: "allowlist",
               streamMode: "block",

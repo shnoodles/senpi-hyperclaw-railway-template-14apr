@@ -5,7 +5,7 @@ import {
   PROVIDER_DEFAULTS,
   AI_PROVIDER_MODEL_MAP,
 } from "./lib/models.js";
-import { readCachedTelegramId, writeCachedTelegramId } from "./lib/telegramId.js";
+import { readCachedTelegramId, writeCachedTelegramId, readChatIdFromUserMd } from "./lib/telegramId.js";
 import { TELEGRAM_USERNAME } from "./lib/config.js";
 
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR || "/data/.openclaw";
@@ -101,6 +101,14 @@ function patchOpenClawJson() {
         // Resolve numeric ID: env is numeric, or read from cache file
         console.log(`[bootstrap] TELEGRAM_USERNAME: ${TELEGRAM_USERNAME}`);
         let numericId = /^\d+$/.test(TELEGRAM_USERNAME) ? TELEGRAM_USERNAME : readCachedTelegramId();
+        // Fallback: recover ID from USER.md (persisted from a previous successful resolution)
+        if (!numericId) {
+          numericId = readChatIdFromUserMd();
+          if (numericId) {
+            writeCachedTelegramId(numericId);
+            console.log(`[bootstrap] Telegram: recovered ID ${numericId} from USER.md`);
+          }
+        }
         // Fallback: recover ID from existing config (survives redeploy on persistent volume)
         if (!numericId) {
           const existingAllowFrom = cfg.channels?.telegram?.allowFrom;
@@ -120,8 +128,11 @@ function patchOpenClawJson() {
           blockStreaming: true,
         };
         if (numericId) {
+          const existingAllowFrom = cfg.channels?.telegram?.allowFrom;
+          const merged = Array.isArray(existingAllowFrom) ? [...existingAllowFrom] : [];
+          if (!merged.includes(numericId)) merged.push(numericId);
           base.dmPolicy = "allowlist";
-          base.allowFrom = [numericId];
+          base.allowFrom = [...new Set(merged)];
           console.log(`[bootstrap] Telegram dmPolicy: allowlist (ID: ${numericId})`);
         } else {
           base.dmPolicy = "pairing";

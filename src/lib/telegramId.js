@@ -3,7 +3,8 @@
  */
 
 import fs from "node:fs";
-import { TELEGRAM_CHAT_ID_FILE } from "./config.js";
+import path from "node:path";
+import { TELEGRAM_CHAT_ID_FILE, WORKSPACE_DIR } from "./config.js";
 
 /**
  * Synchronously read cached Telegram numeric user ID from disk.
@@ -13,6 +14,20 @@ export function readCachedTelegramId() {
   try {
     const id = fs.readFileSync(TELEGRAM_CHAT_ID_FILE, "utf8").trim();
     return /^\d+$/.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Read Telegram chat ID from USER.md (persisted from a previous successful resolution).
+ * @returns {string} numeric ID or ""
+ */
+export function readChatIdFromUserMd() {
+  try {
+    const userMd = fs.readFileSync(path.join(WORKSPACE_DIR, "USER.md"), "utf8");
+    const match = userMd.match(/^- Chat ID:\s*(\d+)/m);
+    return match ? match[1] : "";
   } catch {
     return "";
   }
@@ -106,5 +121,14 @@ export async function resolveTelegramUserId(botToken, username) {
   } catch (err) {
     console.warn(`[telegram] resolveTelegramUserId error: ${err.message}`);
   }
+
+  // Fallback: read from USER.md (persisted from a previous successful resolution)
+  const userMdId = readChatIdFromUserMd();
+  if (userMdId) {
+    console.log(`[telegram] Resolved @${clean} from USER.md → ${userMdId}`);
+    writeCachedTelegramId(userMdId);
+    return userMdId;
+  }
+
   return "";
 }
