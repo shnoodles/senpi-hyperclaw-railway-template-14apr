@@ -5,7 +5,7 @@ import {
   PROVIDER_DEFAULTS,
   AI_PROVIDER_MODEL_MAP,
 } from "./lib/models.js";
-import { readCachedTelegramId } from "./lib/telegramId.js";
+import { readCachedTelegramId, writeCachedTelegramId } from "./lib/telegramId.js";
 
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR || "/data/.openclaw";
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR || "/data/workspace";
@@ -101,6 +101,18 @@ function patchOpenClawJson() {
         // Resolve numeric ID: env is numeric, or read from cache file
         console.log(`[bootstrap] TELEGRAM_USERNAME: ${TELEGRAM_USERNAME}`);
         let numericId = /^\d+$/.test(TELEGRAM_USERNAME) ? TELEGRAM_USERNAME : readCachedTelegramId();
+        // Fallback: recover ID from existing config (survives redeploy on persistent volume)
+        if (!numericId) {
+          const existingAllowFrom = cfg.channels?.telegram?.allowFrom;
+          if (Array.isArray(existingAllowFrom) && existingAllowFrom.length > 0) {
+            const existing = String(existingAllowFrom[0]);
+            if (/^\d+$/.test(existing)) {
+              numericId = existing;
+              writeCachedTelegramId(numericId);
+              console.log(`[bootstrap] Telegram: recovered ID ${numericId} from existing config`);
+            }
+          }
+        }
         console.log(`[bootstrap] numericId: ${numericId}`);
         const base = {
           enabled: true,

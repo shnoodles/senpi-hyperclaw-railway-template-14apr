@@ -102,6 +102,7 @@ export async function resolveTelegramAndWriteUserMd() {
       existingExtra = existing.slice(telegramSectionEnd);
     }
   } catch {
+    console.warn(`[telegram] Error reading USER.md: ${err.message}`);
     // No existing USER.md
   }
 
@@ -119,40 +120,44 @@ export async function resolveTelegramAndWriteUserMd() {
     if (TELEGRAM_USERNAME) {
       if (/^\d+$/.test(TELEGRAM_USERNAME)) {
         chatId = TELEGRAM_USERNAME;
+        console.log(`[telegram] Using TELEGRAM_USERNAME (numeric): ${chatId}`);
         writeCachedTelegramId(chatId);
         console.log(
           `[telegram] Using TELEGRAM_USERNAME (numeric): ${chatId}`
         );
       } else {
         username = TELEGRAM_USERNAME.replace(/^@/, "").toLowerCase();
+        console.log(`[telegram] Resolving username: ${username}`);
         const updatesRes = await fetch(
           `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?limit=100`
         );
         const updates = await updatesRes.json();
         updateList = (updates.ok && updates.result) || [];
-
+        console.log(`[telegram] updateList: ${JSON.stringify(updateList)}`);
         for (const update of updateList) {
           const chat = update.message?.chat || update.my_chat_member?.chat;
           const from = update.message?.from || update.my_chat_member?.from;
           if (chat?.username?.toLowerCase() === username) {
             chatId = String(chat.id);
+            console.log(`[telegram] Found username in chat: ${chatId}`);
             break;
           }
           if (from?.username?.toLowerCase() === username) {
             chatId = String(chat?.id || from?.id);
+            console.log(`[telegram] Found username in from: ${chatId}`);
             break;
           }
         }
 
         if (chatId) {
+          console.log(`[telegram] Writing cached ID: ${chatId}`);
           writeCachedTelegramId(chatId);
           console.log(`[telegram] Resolved @${username} → chat ID ${chatId}`);
         } else if (existingChatId) {
           chatId = existingChatId;
-          console.log(
-            `[telegram] getUpdates empty — reusing previously resolved chat ID ${chatId} for @${username}`
-          );
+          console.log(`[telegram] Falling back to previously resolved chat ID ${chatId}`);
         } else {
+          console.warn(`[telegram] Could not resolve @${username} — the user must message the bot first so the chat ID can be discovered.`);
           console.warn(
             `[telegram] Could not resolve @${username} — the user must message the bot first so the chat ID can be discovered.`
           );
@@ -317,6 +322,9 @@ export function buildOnboardArgs(payload, gatewayToken) {
  * @param {string} gatewayToken - OPENCLAW_GATEWAY_TOKEN
  */
 export async function autoOnboard(gatewayToken) {
+  // Ensure state directory exists before telegram resolution (cache write needs it)
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+
   if (TELEGRAM_BOT_TOKEN && TELEGRAM_USERNAME) {
     await resolveTelegramAndWriteUserMd();
   }
