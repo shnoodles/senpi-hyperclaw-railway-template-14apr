@@ -509,9 +509,10 @@ console.log(`[auto-onboard] directory created`);
           const existingCfg = JSON.parse(fs.readFileSync(configPath(), "utf8")).channels?.telegram;
           existingAllowFrom = Array.isArray(existingCfg?.allowFrom) ? existingCfg.allowFrom : [];
         } catch {}
-        const mergedAllowFrom = resolvedId
+        const rawMerged = resolvedId
           ? [...new Set([...existingAllowFrom, resolvedId])]
-          : existingAllowFrom;
+          : [...existingAllowFrom];
+        const mergedAllowFrom = rawMerged.some((id) => id !== "*") ? rawMerged.filter((id) => id !== "*") : rawMerged;
         const cfgObj = {
           enabled: true,
           dmPolicy: mergedAllowFrom.length > 0 ? "allowlist" : "pairing",

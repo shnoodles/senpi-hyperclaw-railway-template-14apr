@@ -132,7 +132,8 @@ function patchOpenClawJson() {
           const merged = Array.isArray(existingAllowFrom) ? [...existingAllowFrom] : [];
           if (!merged.includes(numericId)) merged.push(numericId);
           base.dmPolicy = "allowlist";
-          base.allowFrom = [...new Set(merged)];
+          const deduped = [...new Set(merged)];
+          base.allowFrom = deduped.some((id) => id !== "*") ? deduped.filter((id) => id !== "*") : deduped;
           console.log(`[bootstrap] Telegram dmPolicy: allowlist (ID: ${numericId})`);
         } else {
           base.dmPolicy = "pairing";
