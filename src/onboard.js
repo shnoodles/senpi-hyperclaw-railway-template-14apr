@@ -78,6 +78,7 @@ export function canAutoOnboard() {
  * Resolve Telegram user to chat ID and write USER.md. Preserves existing sections (e.g. Trading Profile).
  */
 export async function resolveTelegramAndWriteUserMd() {
+  console.log(`[telegram] resolveTelegramAndWriteUserMd`);
   let chatId = "";
   let username = "";
   let updateList = [];
@@ -92,6 +93,7 @@ export async function resolveTelegramAndWriteUserMd() {
   let existingExtra = "";
   let existingChatId = "";
   try {
+    console.log(`[telegram] reading USER.md`);
     const existing = fs.readFileSync(userMdPath, "utf8");
     const chatIdMatch = existing.match(/^- Chat ID:\s*(\d+)/m);
     if (chatIdMatch) {
@@ -101,11 +103,13 @@ export async function resolveTelegramAndWriteUserMd() {
     if (telegramSectionEnd !== -1) {
       existingExtra = existing.slice(telegramSectionEnd);
     }
-  } catch {
+  } catch (err) {
+    console.warn(`[telegram] Error reading USER.md: ${err.message}`);
     // No existing USER.md
   }
 
   try {
+    console.log(`[telegram] verifying bot token`);
     const meRes = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`
     );
@@ -117,42 +121,62 @@ export async function resolveTelegramAndWriteUserMd() {
     console.log(`[telegram] Bot verified: @${me.result.username}`);
 
     if (TELEGRAM_USERNAME) {
+      console.log(`[telegram] TELEGRAM_USERNAME: ${TELEGRAM_USERNAME}`);
       if (/^\d+$/.test(TELEGRAM_USERNAME)) {
         chatId = TELEGRAM_USERNAME;
+        console.log(`[telegram] Using TELEGRAM_USERNAME (numeric): ${chatId}`);
         writeCachedTelegramId(chatId);
         console.log(
           `[telegram] Using TELEGRAM_USERNAME (numeric): ${chatId}`
         );
       } else {
         username = TELEGRAM_USERNAME.replace(/^@/, "").toLowerCase();
-        const updatesRes = await fetch(
-          `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?limit=100`
-        );
-        const updates = await updatesRes.json();
-        updateList = (updates.ok && updates.result) || [];
+        console.log(`[telegram] Resolving username: ${username}`);
+        // Clear any existing webhook — getUpdates returns empty while a webhook is active
+        const whRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
+        const whData = await whRes.json().catch(() => ({}));
+        console.log(`[telegram] deleteWebhook result: ${JSON.stringify(whData)}`);
 
+        // Brief delay to let Telegram process the webhook deletion
+        await new Promise((r) => setTimeout(r, 1000));
+
+        // Retry loop: old gateway may still be polling
+        let updates = { ok: false, result: [] };
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          if (attempt > 1) await new Promise((r) => setTimeout(r, 2000));
+          const updatesRes = await fetch(
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?limit=100`
+          );
+          updates = await updatesRes.json();
+          console.log(`[telegram] getUpdates attempt ${attempt}: ${JSON.stringify(updates)}`);
+          if (updates.ok && updates.result?.length > 0) break;
+        }
+        updateList = (updates.ok && updates.result) || [];
+        console.log(`[telegram] updateList: ${JSON.stringify(updateList)}`);
         for (const update of updateList) {
           const chat = update.message?.chat || update.my_chat_member?.chat;
           const from = update.message?.from || update.my_chat_member?.from;
           if (chat?.username?.toLowerCase() === username) {
             chatId = String(chat.id);
+            console.log(`[telegram] Found username in chat: ${chatId}`);
             break;
           }
           if (from?.username?.toLowerCase() === username) {
             chatId = String(chat?.id || from?.id);
+            console.log(`[telegram] Found username in from: ${chatId}`);
             break;
           }
         }
 
         if (chatId) {
+          console.log(`[telegram] Writing cached ID: ${chatId}`);
           writeCachedTelegramId(chatId);
           console.log(`[telegram] Resolved @${username} → chat ID ${chatId}`);
         } else if (existingChatId) {
           chatId = existingChatId;
-          console.log(
-            `[telegram] getUpdates empty — reusing previously resolved chat ID ${chatId} for @${username}`
-          );
+          console.log(`[telegram] Falling back to previously resolved chat ID ${chatId}`);
         } else {
+          console.warn(`[telegram] Could not resolve @${username} — the user must message the bot first so the chat ID can be discovered.`);
           console.warn(
             `[telegram] Could not resolve @${username} — the user must message the bot first so the chat ID can be discovered.`
           );
@@ -162,6 +186,9 @@ export async function resolveTelegramAndWriteUserMd() {
 
     if (!chatId) {
       if (updateList.length === 0) {
+        // Ensure webhook is cleared for this fallback path too
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`);
+        await new Promise((r) => setTimeout(r, 1000));
         const updatesRes = await fetch(
           `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?limit=50`
         );
@@ -317,8 +344,13 @@ export function buildOnboardArgs(payload, gatewayToken) {
  * @param {string} gatewayToken - OPENCLAW_GATEWAY_TOKEN
  */
 export async function autoOnboard(gatewayToken) {
+  console.log(`[auto-onboard] autoOnboard`);
+  // Ensure state directory exists before telegram resolution (cache write needs it)
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+console.log(`[auto-onboard] directory created`);
   if (TELEGRAM_BOT_TOKEN && TELEGRAM_USERNAME) {
     await resolveTelegramAndWriteUserMd();
+    console.log(`[auto-onboard] telegram resolved and written`);
   }
 
   if (!canAutoOnboard()) {
@@ -472,10 +504,19 @@ export async function autoOnboard(gatewayToken) {
         );
       } else {
         const resolvedId = readCachedTelegramId();
+        let existingAllowFrom = [];
+        try {
+          const existingCfg = JSON.parse(fs.readFileSync(configPath(), "utf8")).channels?.telegram;
+          existingAllowFrom = Array.isArray(existingCfg?.allowFrom) ? existingCfg.allowFrom : [];
+        } catch {}
+        const rawMerged = resolvedId
+          ? [...new Set([...existingAllowFrom, resolvedId])]
+          : [...existingAllowFrom];
+        const mergedAllowFrom = rawMerged.some((id) => id !== "*") ? rawMerged.filter((id) => id !== "*") : rawMerged;
         const cfgObj = {
           enabled: true,
-          dmPolicy: resolvedId ? "allowlist" : "pairing",
-          ...(resolvedId ? { allowFrom: [resolvedId] } : {}),
+          dmPolicy: mergedAllowFrom.length > 0 ? "allowlist" : "pairing",
+          ...(mergedAllowFrom.length > 0 ? { allowFrom: mergedAllowFrom } : {}),
           botToken: TELEGRAM_BOT_TOKEN,
           groupPolicy: "allowlist",
           streamMode: "block",

@@ -6,7 +6,8 @@ import {
   PROVIDER_DEFAULTS,
   AI_PROVIDER_MODEL_MAP,
 } from "./lib/models.js";
-import { readCachedTelegramId } from "./lib/telegramId.js";
+import { readCachedTelegramId, writeCachedTelegramId, readChatIdFromUserMd } from "./lib/telegramId.js";
+import { TELEGRAM_USERNAME } from "./lib/config.js";
 
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR || "/data/.openclaw";
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR || "/data/workspace";
@@ -146,18 +147,43 @@ function patchOpenClawJson() {
     },
     channels: {
       telegram: (() => {
-        const TELEGRAM_USERNAME = process.env.TELEGRAM_USERNAME?.trim() || "";
         const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
         // Resolve numeric ID: env is numeric, or read from cache file
+        console.log(`[bootstrap] TELEGRAM_USERNAME: ${TELEGRAM_USERNAME}`);
         let numericId = /^\d+$/.test(TELEGRAM_USERNAME) ? TELEGRAM_USERNAME : readCachedTelegramId();
+        // Fallback: recover ID from USER.md (persisted from a previous successful resolution)
+        if (!numericId) {
+          numericId = readChatIdFromUserMd();
+          if (numericId) {
+            writeCachedTelegramId(numericId);
+            console.log(`[bootstrap] Telegram: recovered ID ${numericId} from USER.md`);
+          }
+        }
+        // Fallback: recover ID from existing config (survives redeploy on persistent volume)
+        if (!numericId) {
+          const existingAllowFrom = cfg.channels?.telegram?.allowFrom;
+          if (Array.isArray(existingAllowFrom) && existingAllowFrom.length > 0) {
+            const existing = String(existingAllowFrom[0]);
+            if (/^\d+$/.test(existing)) {
+              numericId = existing;
+              writeCachedTelegramId(numericId);
+              console.log(`[bootstrap] Telegram: recovered ID ${numericId} from existing config`);
+            }
+          }
+        }
+        console.log(`[bootstrap] numericId: ${numericId}`);
         const base = {
           enabled: true,
           streamMode: "block",
           blockStreaming: true,
         };
         if (numericId) {
+          const existingAllowFrom = cfg.channels?.telegram?.allowFrom;
+          const merged = Array.isArray(existingAllowFrom) ? [...existingAllowFrom] : [];
+          if (!merged.includes(numericId)) merged.push(numericId);
           base.dmPolicy = "allowlist";
-          base.allowFrom = [numericId];
+          const deduped = [...new Set(merged)];
+          base.allowFrom = deduped.some((id) => id !== "*") ? deduped.filter((id) => id !== "*") : deduped;
           console.log(`[bootstrap] Telegram dmPolicy: allowlist (ID: ${numericId})`);
         } else {
           base.dmPolicy = "pairing";
