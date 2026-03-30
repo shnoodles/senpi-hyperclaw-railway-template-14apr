@@ -24,11 +24,13 @@ const SENPI_TOKEN_FILE = path.join(STATE_DIR, "config", "senpi.token");
 const IMAGE_SKILLS_DIR = "/opt/openclaw-skills";
 const STATE_SKILLS_DIR = path.join(STATE_DIR, "skills");
 
-/** Plugin id from published openclaw.plugin.json (@senpi-ai/runtime). */
-const SENPI_RUNTIME_PLUGIN_ID = "@senpi-ai/runtime";
+/**
+ * OpenClaw discovery uses the unscoped npm name as idHint (@senpi-ai/runtime → "runtime").
+ * openclaw.plugin.json "id" must match that hint or you get "plugin id mismatch" warnings.
+ * npm install spec stays scoped.
+ */
+const SENPI_RUNTIME_PLUGIN_ID = "runtime";
 const SENPI_RUNTIME_NPM_SPEC = "@senpi-ai/runtime";
-/** Previous id before rename; stripped from config on merge. */
-const LEGACY_SENPI_PLUGIN_ID = "trading-recipe";
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -129,9 +131,7 @@ function patchOpenClawJson() {
   let pluginsAllow = [...new Set([...existingPluginAllow, ...bootstrapPluginAllow])];
   // Do not keep Senpi runtime plugin in allow when disabled.
   if (process.env.SENPI_TRADING_RUNTIME_ENABLED === "false") {
-    pluginsAllow = pluginsAllow.filter(
-      (id) => id !== SENPI_RUNTIME_PLUGIN_ID && id !== LEGACY_SENPI_PLUGIN_ID,
-    );
+    pluginsAllow = pluginsAllow.filter((id) => id !== SENPI_RUNTIME_PLUGIN_ID);
   }
 
   const patch = {
@@ -218,7 +218,7 @@ function patchOpenClawJson() {
       })(),
     },
     plugins: {
-      // Always include telegram (+ @senpi-ai/runtime when enabled); preserve any other ids from config.
+      // Always include telegram (+ Senpi runtime plugin id "runtime" when enabled); preserve any other ids from config.
       allow: pluginsAllow,
       entries: (() => {
         const entries = { telegram: { enabled: true } };
@@ -263,15 +263,6 @@ function patchOpenClawJson() {
   // If Senpi runtime is disabled, remove entries so config stays valid when plugin is not installed
   if (process.env.SENPI_TRADING_RUNTIME_ENABLED === "false" && merged.plugins?.entries) {
     delete merged.plugins.entries[SENPI_RUNTIME_PLUGIN_ID];
-    delete merged.plugins.entries[LEGACY_SENPI_PLUGIN_ID];
-  }
-
-  // After rename from trading-recipe: drop legacy id from allow/entries (avoid duplicate plugins)
-  if (merged.plugins?.allow?.length) {
-    merged.plugins.allow = merged.plugins.allow.filter((id) => id !== LEGACY_SENPI_PLUGIN_ID);
-  }
-  if (merged.plugins?.entries?.[LEGACY_SENPI_PLUGIN_ID]) {
-    delete merged.plugins.entries[LEGACY_SENPI_PLUGIN_ID];
   }
 
   merged.agents = merged.agents || {};
