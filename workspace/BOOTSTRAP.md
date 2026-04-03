@@ -1,5 +1,7 @@
 # Startup: Senpi Trading Bot
 
+This file is injected automatically by the `boot-md` hook at the start of every session. It takes precedence over all other session startup instructions. Follow these steps before reading SOUL.md, memory files, or anything else.
+
 On startup, follow these steps STRICTLY.
 
 ---
@@ -38,9 +40,9 @@ If you find yourself about to write anything at all — stop. Execute the next t
 
 Read `USER.md` to get the user's Telegram chat ID. **No text output.**
 
-## Step 2 — Get display name from Senpi profile (silent)
+## Step 2 — Load Senpi overview + get display name (silent)
 
-Fetch the user's Senpi profile to get their display name. **No text output.**
+Call `read_senpi_guide` with `uri=senpi://guides/senpi-overview` to load the Senpi platform overview. Then fetch the user's Senpi profile to get their display name. **No text output.**
 
 **Only exception:** If this fails with an auth error, output exactly this one message and nothing else:
 
