@@ -1,33 +1,47 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Senpi Agent Fleet Deployer
+# Senpi Agent Fleet Deployer (Railway GraphQL API)
 # =============================================================================
-# Deploys multiple Senpi agents on Railway from a single config file.
+# Fully automated — no interactive prompts.
+#
+# Prerequisites:
+#   1. Railway API token: https://railway.com/account/tokens
+#   2. jq installed: brew install jq
+#   3. fleet-config.json filled in
 #
 # Usage:
+#   export RAILWAY_API_TOKEN="your-token-here"
 #   bash scripts/deploy-fleet.sh
-#
-# It will prompt you to select your Railway workspace for each agent.
-# Everything else is automatic.
 # =============================================================================
 
 set -uo pipefail
 
 CONFIG_FILE="${1:-scripts/fleet-config.json}"
 REPO="shnoodles/senpi-hyperclaw-railway-template"
+BRANCH="main"
+API="https://backboard.railway.com/graphql/v2"
 
 # ── Preflight ──
-for cmd in railway jq; do
-  command -v "$cmd" &>/dev/null || { echo "❌ $cmd not found"; exit 1; }
-done
-railway whoami &>/dev/null || { echo "❌ Run: railway login"; exit 1; }
+command -v jq &>/dev/null || { echo "❌ jq not found. brew install jq"; exit 1; }
+command -v curl &>/dev/null || { echo "❌ curl not found"; exit 1; }
 [ -f "$CONFIG_FILE" ] || { echo "❌ $CONFIG_FILE not found"; exit 1; }
+[ -n "${RAILWAY_API_TOKEN:-}" ] || { echo "❌ Set RAILWAY_API_TOKEN first. Get one at https://railway.com/account/tokens"; exit 1; }
+
+# ── Helper: call Railway GraphQL API ──
+gql() {
+  local query="$1"
+  local variables="$2"
+  curl -s -X POST "$API" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $RAILWAY_API_TOKEN" \
+    -d "{\"query\": $(echo "$query" | jq -Rs .), \"variables\": $variables}"
+}
 
 AGENT_COUNT=$(jq '.agents | length' "$CONFIG_FILE")
 SHARED_SETUP_PASSWORD=$(jq -r '.shared.setup_password // ""' "$CONFIG_FILE")
 SHARED_TOGETHER_KEY=$(jq -r '.shared.together_api_key // ""' "$CONFIG_FILE")
 
-echo "🚀 Deploying $AGENT_COUNT agents"
+echo "🚀 Deploying $AGENT_COUNT agents via Railway API"
 echo ""
 
 for i in $(seq 0 $(($AGENT_COUNT - 1))); do
@@ -47,48 +61,129 @@ for i in $(seq 0 $(($AGENT_COUNT - 1))); do
   echo "   Model: $MODEL"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # Step 1: Create project (interactive - will ask for workspace)
-  echo "   📁 Creating project '$AGENT_NAME'..."
-  echo "   👉 Select your workspace when prompted"
-  railway init --name "$AGENT_NAME"
-  echo ""
+  # ── Step 1: Create project ──
+  echo "   📁 Creating project..."
+  PROJECT_RESULT=$(gql '
+    mutation($input: ProjectCreateInput!) {
+      projectCreate(input: $input) {
+        id
+        environments { edges { node { id name } } }
+      }
+    }' "{\"input\": {\"name\": \"$AGENT_NAME\"}}")
 
-  # Step 2: Add GitHub repo as service with env vars (skips variable prompt)
-  echo "   📦 Adding service from GitHub..."
-  railway add -s "$AGENT_NAME" -r "$REPO" \
-    -v "AI_PROVIDER=$AI_PROVIDER" \
-    -v "AI_API_KEY=$AI_API_KEY" \
-    -v "AI_MODEL=$MODEL" \
-    -v "SENPI_AUTH_TOKEN=$SENPI_AUTH_TOKEN" \
-    -v "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" \
-    -v "SETUP_PASSWORD=$SETUP_PASSWORD" \
-    -v "OPENCLAW_STATE_DIR=/data/.openclaw" \
-    -v "OPENCLAW_WORKSPACE_DIR=/data/workspace" \
-    -v "SENPI_STATE_DIR=/data/.openclaw/senpi-state" \
-    ${TELEGRAM_USERID:+-v "TELEGRAM_USERID=$TELEGRAM_USERID"}
+  PROJECT_ID=$(echo "$PROJECT_RESULT" | jq -r '.data.projectCreate.id // empty')
+  ENV_ID=$(echo "$PROJECT_RESULT" | jq -r '.data.projectCreate.environments.edges[0].node.id // empty')
 
-  # Step 3: Link to the new service
-  railway service "$AGENT_NAME"
+  if [ -z "$PROJECT_ID" ] || [ -z "$ENV_ID" ]; then
+    echo "   ❌ Failed to create project:"
+    echo "   $PROJECT_RESULT" | jq .
+    continue
+  fi
+  echo "   ✅ Project: $PROJECT_ID"
+  echo "   ✅ Environment: $ENV_ID"
 
-  # Step 4: Volume
+  # ── Step 2: Create service with GitHub repo + variables ──
+  echo "   📦 Creating service with repo..."
+
+  VARS_JSON=$(jq -n \
+    --arg ai_provider "$AI_PROVIDER" \
+    --arg ai_api_key "$AI_API_KEY" \
+    --arg ai_model "$MODEL" \
+    --arg senpi_token "$SENPI_AUTH_TOKEN" \
+    --arg tg_bot "$TELEGRAM_BOT_TOKEN" \
+    --arg tg_user "$TELEGRAM_USERID" \
+    --arg setup_pw "$SETUP_PASSWORD" \
+    '{
+      AI_PROVIDER: $ai_provider,
+      AI_API_KEY: $ai_api_key,
+      AI_MODEL: $ai_model,
+      SENPI_AUTH_TOKEN: $senpi_token,
+      TELEGRAM_BOT_TOKEN: $tg_bot,
+      TELEGRAM_USERID: $tg_user,
+      SETUP_PASSWORD: $setup_pw,
+      OPENCLAW_STATE_DIR: "/data/.openclaw",
+      OPENCLAW_WORKSPACE_DIR: "/data/workspace",
+      SENPI_STATE_DIR: "/data/.openclaw/senpi-state"
+    }')
+
+  SERVICE_RESULT=$(gql '
+    mutation($name: String, $projectId: String!, $environmentId: String!, $source: ServiceSourceInput, $branch: String, $variables: EnvironmentVariables) {
+      serviceCreate(input: {
+        name: $name,
+        projectId: $projectId,
+        environmentId: $environmentId,
+        source: $source,
+        variables: $variables,
+        branch: $branch
+      }) { id name }
+    }' "{
+      \"name\": \"$AGENT_NAME\",
+      \"projectId\": \"$PROJECT_ID\",
+      \"environmentId\": \"$ENV_ID\",
+      \"source\": {\"repo\": \"$REPO\"},
+      \"branch\": \"$BRANCH\",
+      \"variables\": $VARS_JSON
+    }")
+
+  SERVICE_ID=$(echo "$SERVICE_RESULT" | jq -r '.data.serviceCreate.id // empty')
+
+  if [ -z "$SERVICE_ID" ]; then
+    echo "   ❌ Failed to create service:"
+    echo "   $SERVICE_RESULT" | jq .
+    continue
+  fi
+  echo "   ✅ Service: $SERVICE_ID"
+
+  # ── Step 3: Add volume ──
   echo "   💾 Adding volume..."
-  railway volume add --mount-path "/data" 2>/dev/null || echo "   ⚠️  Volume: add manually in dashboard (mount at /data)"
+  VOL_RESULT=$(gql '
+    mutation($input: VolumeCreateInput!) {
+      volumeCreate(input: $input) { id }
+    }' "{\"input\": {
+      \"projectId\": \"$PROJECT_ID\",
+      \"environmentId\": \"$ENV_ID\",
+      \"serviceId\": \"$SERVICE_ID\",
+      \"mountPath\": \"/data\"
+    }}")
 
-  # Step 5: Domain
+  VOL_ID=$(echo "$VOL_RESULT" | jq -r '.data.volumeCreate.id // empty')
+  if [ -n "$VOL_ID" ]; then
+    echo "   ✅ Volume: $VOL_ID"
+  else
+    echo "   ⚠️  Volume might need manual setup"
+  fi
+
+  # ── Step 4: Generate domain ──
   echo "   🌐 Generating domain..."
-  railway domain 2>/dev/null || echo "   ⚠️  Domain: enable public networking in dashboard"
+  DOMAIN_RESULT=$(gql '
+    mutation($input: ServiceDomainCreateInput!) {
+      serviceDomainCreate(input: $input) { domain }
+    }' "{\"input\": {
+      \"environmentId\": \"$ENV_ID\",
+      \"serviceId\": \"$SERVICE_ID\"
+    }}")
+
+  DOMAIN=$(echo "$DOMAIN_RESULT" | jq -r '.data.serviceDomainCreate.domain // empty')
+  if [ -n "$DOMAIN" ]; then
+    echo "   ✅ Domain: https://$DOMAIN"
+  else
+    echo "   ⚠️  Domain: enable public networking in dashboard"
+  fi
 
   echo ""
-  echo "   ✅ $AGENT_NAME done! (password: $SETUP_PASSWORD)"
+  echo "   🎉 $AGENT_NAME deployed!"
+  echo "   🔗 https://railway.com/project/$PROJECT_ID"
+  echo "   📝 Password: $SETUP_PASSWORD"
+  echo "   🤖 Model: $MODEL"
   echo ""
 
-  # Unlink before next
-  railway unlink 2>/dev/null || true
 done
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎉 All $AGENT_COUNT agents deployed!"
 echo ""
-echo "Send /start to each Telegram bot. Agents boot in ~3-5 min."
-echo "Each starts with its own model — no manual switching needed."
+echo "Next steps:"
+echo "  1. Send /start to each Telegram bot"
+echo "  2. Wait ~3-5 min for agents to boot"
+echo "  3. Each starts with its assigned model automatically"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
