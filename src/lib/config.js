@@ -58,13 +58,21 @@ export const PROVIDER_TO_AUTH_CHOICE = {
   zai: "zai-api-key",
   venice: "venice-api-key",
   minimax: "minimax-api",
-  together: "together-api-key",
+  together: "openai-api-key",
   synthetic: "synthetic-api-key",
   "opencode-zen": "opencode-zen",
 };
 
 /** Providers that use ADC/OAuth instead of an API key (AI_API_KEY not required). */
 export const PROVIDERS_WITHOUT_API_KEY = new Set([]);
+
+/**
+ * Providers that use an OpenAI-compatible API at a custom base URL.
+ * After onboarding as "openai", the base URL is patched into openclaw.json.
+ */
+export const PROVIDER_BASE_URL = {
+  together: "https://api.together.xyz/v1",
+};
 
 /**
  * Map AI_PROVIDER to its provider-specific env var name.
