@@ -33,6 +33,7 @@ This repo packages **Openclaw** for Railway with **zero-touch auto-configuration
 |---|---|---|
 | `AI_PROVIDER` | Yes | AI backend to use (see table below) |
 | `AI_API_KEY` | Yes | API key for the chosen provider |
+| `AI_MODEL` | Optional | Override default model (e.g. `together/Qwen/Qwen3.5-9B`). If unset, uses provider default. |
 | `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from @BotFather |
 | `SENPI_AUTH_TOKEN` | Yes | Senpi authentication token for MCP |
 | `OPENCLAW_STATE_DIR` | Recommended | Set to `/data/.openclaw` for persistence |

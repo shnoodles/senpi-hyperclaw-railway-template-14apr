@@ -116,6 +116,7 @@ for i in $(seq 0 $(($AGENT_COUNT - 1))); do
   railway variables \
     --set "AI_PROVIDER=$AI_PROVIDER" \
     --set "AI_API_KEY=$AI_API_KEY" \
+    --set "AI_MODEL=$MODEL" \
     --set "SENPI_AUTH_TOKEN=$SENPI_AUTH_TOKEN" \
     --set "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" \
     --set "SETUP_PASSWORD=$SETUP_PASSWORD" \

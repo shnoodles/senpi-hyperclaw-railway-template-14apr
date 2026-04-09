@@ -289,7 +289,18 @@ function patchOpenClawJson() {
     if (aiModel) available.push({ key: "AI_API_KEY", model: aiModel });
   }
 
-  if (available.length > 0) {
+  // AI_MODEL env var overrides the provider default (used by fleet deployments)
+  const modelOverride = process.env.AI_MODEL?.trim();
+
+  if (modelOverride) {
+    merged.agents.defaults.model = {
+      primary: modelOverride,
+      fallbacks: available.slice(0).map((p) => p.model).filter((m) => m !== modelOverride),
+    };
+    console.log(
+      `[bootstrap] Default model: ${modelOverride} (from AI_MODEL env var)`
+    );
+  } else if (available.length > 0) {
     merged.agents.defaults.model = {
       primary: available[0].model,
       fallbacks: available.slice(1).map((p) => p.model),
