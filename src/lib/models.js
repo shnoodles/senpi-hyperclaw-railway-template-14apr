@@ -32,6 +32,11 @@ export const DESIRED_MODELS = {
   // ── OpenAI Codex (subscription/OAuth) ──
   "openai-codex/gpt-5.3-codex": { alias: "GPT-5.3 Codex" },
 
+  // ── Google Gemma ──
+  "google/gemma-4-31b-it": { alias: "Gemma 4 31B" },
+  "google/gemma-4-26b-a4b-it": { alias: "Gemma 4 26B MoE" },
+  "google/gemma-4-e4b-it": { alias: "Gemma 4 E4B" },
+
   // ── Google Gemini ──
   "google/gemini-3.1-pro-preview": { alias: "Gemini 3.1 Pro" },
   "google/gemini-3-flash-preview": { alias: "Gemini 3 Flash" },
