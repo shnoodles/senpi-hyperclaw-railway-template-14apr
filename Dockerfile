@@ -36,8 +36,11 @@ RUN set -eux; \
     sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
   done
 
-# Disable minimumReleaseAge so freshly-published transitive deps don't block the build
-RUN pnpm config set minimum-release-age 0 && pnpm install --no-frozen-lockfile
+# Disable minimumReleaseAge so freshly-published transitive deps don't block the build.
+# The project .npmrc may set this; override it at the project level.
+RUN sed -i 's/minimum-release-age=.*/minimum-release-age=0/' .npmrc 2>/dev/null; \
+    grep -q 'minimum-release-age' .npmrc 2>/dev/null || echo 'minimum-release-age=0' >> .npmrc; \
+    pnpm install --no-frozen-lockfile
 RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:install && pnpm ui:build
