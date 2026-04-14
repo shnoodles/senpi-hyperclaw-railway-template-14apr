@@ -29,6 +29,7 @@ const MCPORTER_CONFIG = path.join(STATE_DIR, "config", "mcporter.json");
 
 let gatewayProc = null;
 let gatewayStarting = null;
+let gemmaToolParserUrl = null; // Track if parser is already running
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -271,28 +272,34 @@ export async function startGateway(gatewayToken) {
   // If AI_PROVIDER=vertex, start a local proxy that intercepts LLM responses
   // and converts Gemma 4's native <|tool_call> tokens into OpenAI tool_calls.
   // OpenClaw → gemmaToolParser (localhost:7299) → upstream vertex proxy → Vertex AI
-  if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vertex") {
+  // Only start once — subsequent gateway restarts reuse the existing proxy.
+  if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vertex" && !gemmaToolParserUrl) {
     const upstreamUrl = process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1";
     const upstreamKey = process.env.VERTEX_API_KEY || process.env.AI_API_KEY || "";
     try {
-      const localProxyUrl = await startGemmaToolParser(upstreamUrl, upstreamKey);
-      console.log(`[gateway] Gemma tool-parser proxy started at ${localProxyUrl}`);
-      // Patch OpenClaw config to route through local parser proxy instead of upstream
+      gemmaToolParserUrl = await startGemmaToolParser(upstreamUrl, upstreamKey);
+      console.log(`[gateway] Gemma tool-parser proxy started at ${gemmaToolParserUrl}`);
+    } catch (err) {
+      console.error(`[gateway] Gemma tool-parser proxy failed to start: ${err.message}`);
+      console.error(`[gateway] Falling back to direct upstream connection`);
+    }
+  }
+  // Always patch config to route through parser if it's running.
+  // Patch BOTH vertex and vertex-litellm providers (LiteLLM startup script creates vertex-litellm).
+  if (gemmaToolParserUrl) {
+    for (const provider of ["vertex", "vertex-litellm"]) {
       await runCmd(
         OPENCLAW_NODE,
         clawArgs([
           "config",
           "set",
           "--json",
-          "models.providers.vertex.baseUrl",
-          `"${localProxyUrl}"`,
+          `models.providers.${provider}.baseUrl`,
+          `"${gemmaToolParserUrl}"`,
         ])
       );
-      console.log(`[gateway] Patched models.providers.vertex.baseUrl → ${localProxyUrl}`);
-    } catch (err) {
-      console.error(`[gateway] Gemma tool-parser proxy failed to start: ${err.message}`);
-      console.error(`[gateway] Falling back to direct upstream connection`);
     }
+    console.log(`[gateway] Patched models.providers.{vertex,vertex-litellm}.baseUrl → ${gemmaToolParserUrl}`);
   }
 
   const args = [
