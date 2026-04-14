@@ -284,9 +284,14 @@ function patchOpenClawJson() {
 
   const available = PROVIDER_DEFAULTS.filter((p) => process.env[p.key]?.trim());
 
-  if (available.length === 0 && process.env.AI_PROVIDER?.trim() && process.env.AI_API_KEY?.trim()) {
-    const aiModel = AI_PROVIDER_MODEL_MAP[process.env.AI_PROVIDER.trim().toLowerCase()];
-    if (aiModel) available.push({ key: "AI_API_KEY", model: aiModel });
+  if (available.length === 0 && process.env.AI_PROVIDER?.trim()) {
+    // For vertex, no API key is required (auth is handled by vertexAuth.js)
+    const hasKey = process.env.AI_API_KEY?.trim();
+    const isKeyless = process.env.AI_PROVIDER.trim().toLowerCase() === "vertex";
+    if (hasKey || isKeyless) {
+      const aiModel = AI_PROVIDER_MODEL_MAP[process.env.AI_PROVIDER.trim().toLowerCase()];
+      if (aiModel) available.push({ key: "AI_API_KEY", model: aiModel });
+    }
   }
 
   // AI_MODEL env var overrides the provider default (used by fleet deployments)
@@ -350,21 +355,23 @@ function patchOpenClawJson() {
     console.log("[bootstrap] Together AI provider configured with Qwen3.5 models");
   }
 
-  // Register Gemma models with Vertex proxy (OpenAI-compatible via Railway proxy)
+  // Register Gemma model with Vertex AI provider (self-hosted on GCP dedicated endpoint).
+  // Uses a local proxy (vertexProxy.js) that translates OpenAI format and handles GCP auth.
+  // The proxy runs on 127.0.0.1:7199 and VERTEX_PROXY_URL is set by gateway.js when it starts.
   if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vertex") {
-    const proxyUrl = process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1";
+    const proxyUrl = process.env.VERTEX_PROXY_URL || process.env.VERTEX_BASE_URL || "http://127.0.0.1:7199/v1";
     merged.models = merged.models || {};
     merged.models.mode = "merge";
     merged.models.providers = merged.models.providers || {};
     merged.models.providers.vertex = merged.models.providers.vertex || {
       baseUrl: proxyUrl,
-      apiKey: "${VERTEX_API_KEY}",
+      apiKey: "proxy-handles-auth",
       api: "openai-completions",
       models: [
-        { id: "gemma-4-31b-it", name: "Gemma 4 31B", reasoning: false, contextWindow: 131072, maxTokens: 8192 },
+        { id: "gemma-4-31b-it", name: "Gemma 4 31B IT (Vertex AI)", reasoning: false, contextWindow: 131072, maxTokens: 8192 },
       ],
     };
-    console.log(`[bootstrap] Vertex AI provider configured via proxy at ${proxyUrl}`);
+    console.log(`[bootstrap] Vertex AI provider configured via local proxy: ${proxyUrl}`);
   }
 
   // Always rewrite agents.list so profile/alsoAllow fixes take effect on every redeploy.

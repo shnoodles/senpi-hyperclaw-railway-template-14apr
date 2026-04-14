@@ -66,7 +66,7 @@ export const PROVIDER_TO_AUTH_CHOICE = {
 };
 
 /** Providers that use ADC/OAuth instead of an API key (AI_API_KEY not required). */
-export const PROVIDERS_WITHOUT_API_KEY = new Set([]);
+export const PROVIDERS_WITHOUT_API_KEY = new Set(["vertex"]);
 
 /**
  * Providers that use an OpenAI-compatible API at a custom base URL.

@@ -5,6 +5,7 @@
 import fs from "node:fs";
 
 import express from "express";
+import path from "node:path";
 import {
   PORT,
   configPath,
@@ -16,6 +17,7 @@ import {
   resolveEffectiveApiKey,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_USERNAME,
+  STATE_DIR,
 } from "./lib/config.js";
 import { resolveGatewayToken } from "./lib/auth.js";
 import { getGatewayProcess, restartGateway } from "./gateway.js";
@@ -49,6 +51,26 @@ if (!SETUP_PASSWORD) {
 const OPENCLAW_GATEWAY_TOKEN = resolveGatewayToken();
 process.env.OPENCLAW_GATEWAY_TOKEN = OPENCLAW_GATEWAY_TOKEN;
 
+// Propagate effective API key to provider-specific env vars
+{
+  const PROVIDER_ENV_MAP = {
+    together: "TOGETHER_API_KEY",
+    deepseek: "DEEPSEEK_API_KEY",
+    moonshot: "MOONSHOT_API_KEY",
+    gemini: "GEMINI_API_KEY",
+    venice: "VENICE_API_KEY",
+    zai: "ZAI_API_KEY",
+  };
+  const envVar = PROVIDER_ENV_MAP[AI_PROVIDER];
+  if (envVar && !process.env[envVar]) {
+    const effectiveKey = resolveEffectiveApiKey();
+    if (effectiveKey) {
+      process.env[envVar] = effectiveKey;
+      console.log(`[wrapper] Propagated effective key to ${envVar}`);
+    }
+  }
+}
+
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
@@ -62,6 +84,63 @@ app.get(
   controlUiMiddleware,
   controlUiHandler
 );
+
+// Debug endpoints: proxy request logs and MCP config
+import { getRequestLog } from "./lib/vertexProxy.js";
+app.get("/debug/proxy-logs", (_req, res) => {
+  res.json({ logs: getRequestLog(), count: getRequestLog().length });
+});
+app.get("/debug/mcp-config", (_req, res) => {
+  try {
+    const mcporterPath = path.join(STATE_DIR, "config", "mcporter.json");
+    const ocConfigPath = path.join(STATE_DIR, "openclaw.json");
+    const configDir = path.join(STATE_DIR, "config");
+    const mcporter = fs.existsSync(mcporterPath) ? JSON.parse(fs.readFileSync(mcporterPath, "utf8")) : "FILE NOT FOUND";
+    const ocConfig = fs.existsSync(ocConfigPath) ? JSON.parse(fs.readFileSync(ocConfigPath, "utf8")) : "FILE NOT FOUND";
+    const stateExists = fs.existsSync(STATE_DIR);
+    const configDirExists = fs.existsSync(configDir);
+    const configDirContents = configDirExists ? fs.readdirSync(configDir) : "DIR NOT FOUND";
+    const stateDirContents = stateExists ? fs.readdirSync(STATE_DIR) : "DIR NOT FOUND";
+    const maskToken = (t) => t ? `${t.slice(0, 6)}...${t.slice(-4)} (${t.length} chars)` : "(empty)";
+    if (mcporter?.mcpServers?.senpi?.env?.SENPI_AUTH_TOKEN) {
+      mcporter.mcpServers.senpi.env.SENPI_AUTH_TOKEN = maskToken(mcporter.mcpServers.senpi.env.SENPI_AUTH_TOKEN);
+    }
+    res.json({
+      mcporterPath,
+      mcporter,
+      configDirContents,
+      stateDirContents,
+      ocConfigModels: ocConfig?.models,
+      ocConfigMcp: ocConfig?.mcp || "not set in main config",
+      envSenpiToken: process.env.SENPI_AUTH_TOKEN ? maskToken(process.env.SENPI_AUTH_TOKEN) : "(not set)",
+    });
+  } catch(e) {
+    res.json({ error: e.message, stack: e.stack });
+  }
+});
+// POST to inject Senpi MCP into openclaw.json and restart gateway
+app.post("/debug/fix-mcp", async (_req, res) => {
+  try {
+    const ocPath = path.join(STATE_DIR, "openclaw.json");
+    const cfg = JSON.parse(fs.readFileSync(ocPath, "utf8"));
+    const senpiToken = process.env.SENPI_AUTH_TOKEN || "";
+    const mcpUrl = process.env.SENPI_MCP_URL || "https://mcp.dev.senpi.ai/mcp";
+    cfg.mcp = cfg.mcp || {};
+    cfg.mcp.servers = cfg.mcp.servers || {};
+    cfg.mcp.servers.senpi = {
+      command: "npx",
+      args: ["mcp-remote", mcpUrl, "--header", "Authorization: Bearer ${SENPI_AUTH_TOKEN}"],
+      env: { SENPI_AUTH_TOKEN: senpiToken },
+    };
+    fs.writeFileSync(ocPath, JSON.stringify(cfg, null, 2));
+    const { restartGateway: rg } = await import("./gateway.js");
+    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || "";
+    await rg(gatewayToken);
+    res.json({ ok: true, wrote: ocPath, mcpServers: Object.keys(cfg.mcp.servers), gatewayRestarted: true });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
 
 // Everything else → proxy to gateway (with auth and onboarding redirect)
 app.use(catchAllMiddleware);
