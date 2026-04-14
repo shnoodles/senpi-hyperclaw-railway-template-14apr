@@ -10,32 +10,18 @@ echo "  OpenClaw + LiteLLM Vertex AI Proxy Launcher"
 echo "================================================"
 
 # ---------------------------------------------------------------------------
-# 1. Write Google service account credentials to a file
-#    (Railway stores the JSON as a single env var; LiteLLM needs a file path)
-# ---------------------------------------------------------------------------
-if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
-  echo "$GOOGLE_CREDENTIALS_JSON" > /tmp/gcp-sa-key.json
-  export GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp-sa-key.json"
-  echo "[✓] Google service account credentials written to /tmp/gcp-sa-key.json"
-else
-  echo "[!] WARNING: GOOGLE_CREDENTIALS_JSON is not set."
-  echo "    LiteLLM will not be able to authenticate with Vertex AI."
-  echo "    Set this env var to your service account JSON contents."
-fi
-
-# ---------------------------------------------------------------------------
-# 2. Inject project/location into litellm config if env vars are set
+# 1. Verify vertex-openai-proxy env vars are set
+#    (GCP authentication is handled by the proxy, not LiteLLM)
 # ---------------------------------------------------------------------------
 LITELLM_CONFIG="/app/litellm_config.yaml"
 
-if [ -n "$GCP_PROJECT_ID" ]; then
-  sed -i "s/YOUR_GCP_PROJECT_ID/${GCP_PROJECT_ID}/g" "$LITELLM_CONFIG"
-  echo "[✓] GCP project ID set to: $GCP_PROJECT_ID"
-fi
+export VERTEX_PROXY_URL="${VERTEX_PROXY_URL:-https://vertex-openai-proxy-production.up.railway.app/v1}"
+echo "[✓] Vertex proxy URL: $VERTEX_PROXY_URL"
 
-if [ -n "$GCP_REGION" ]; then
-  sed -i "s/vertex_location: REGION/vertex_location: ${GCP_REGION}/g" "$LITELLM_CONFIG"
-  echo "[✓] GCP region set to: $GCP_REGION"
+if [ -z "$VERTEX_API_KEY" ]; then
+  echo "[!] WARNING: VERTEX_API_KEY is not set."
+  echo "    LiteLLM will not be able to authenticate with the vertex-openai-proxy."
+  echo "    Set this env var to the PROXY_API_KEY configured on the proxy service."
 fi
 
 # ---------------------------------------------------------------------------
@@ -77,7 +63,7 @@ done
 # ---------------------------------------------------------------------------
 export AI_PROVIDER="${AI_PROVIDER:-openai}"
 export AI_API_KEY="$LITELLM_MASTER_KEY"
-export AI_MODEL="${AI_MODEL:-qwen3_5-35b}"
+export AI_MODEL="${AI_MODEL:-gemma-4-31b-it}"
 
 echo "[✓] OpenClaw AI env vars set:"
 echo "    Provider:  $AI_PROVIDER"
@@ -114,7 +100,7 @@ config.models.providers['vertex-litellm'] = {
   models: [
     {
       id: '${AI_MODEL}',
-      name: 'Qwen 3.5 35B (Vertex AI)',
+      name: 'Gemma 4 31B IT (Vertex AI)',
       reasoning: false,
       input: ['text'],
       contextWindow: 131072,

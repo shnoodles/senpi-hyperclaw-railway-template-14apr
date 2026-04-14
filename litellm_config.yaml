@@ -1,25 +1,25 @@
-# LiteLLM Proxy Configuration for Vertex AI Qwen 3.5
-# This config routes OpenAI-compatible requests to your Vertex AI Model Garden endpoint
+# LiteLLM Proxy Configuration for Vertex AI (via vertex-openai-proxy)
+# Routes OpenAI-compatible requests through the vertex-openai-proxy to Vertex AI
 #
 # INSTRUCTIONS:
-#   1. Replace YOUR_GCP_PROJECT_ID with your actual Google Cloud project ID
-#   2. Replace REGION with the region where your model is deployed (e.g., us-central1, europe-west4)
-#   3. The GOOGLE_APPLICATION_CREDENTIALS env var must point to your service account JSON
+#   1. Set VERTEX_PROXY_URL to your vertex-openai-proxy Railway URL (e.g. https://vertex-openai-proxy-production.up.railway.app/v1)
+#   2. Set VERTEX_API_KEY to the PROXY_API_KEY configured on the proxy service
+#   3. No GCP credentials needed here — the proxy handles authentication
 
 model_list:
-  # Primary model: Qwen 3.5 35B on Vertex AI Model Garden (MaaS endpoint, no dedicated DNS)
-  - model_name: qwen3_5-35b
+  # Primary model: Gemma 4 31B IT on Vertex AI dedicated endpoint (via proxy)
+  - model_name: gemma-4-31b-it
     litellm_params:
-      model: vertex_ai/qwen/qwen3_5-35b-a3b
-      vertex_project: YOUR_GCP_PROJECT_ID
-      vertex_location: REGION
+      model: openai/gemma-4-31b-it
+      api_base: os.environ/VERTEX_PROXY_URL
+      api_key: os.environ/VERTEX_API_KEY
 
   # Alias so OpenClaw can reference it with a simple name
-  - model_name: qwen
+  - model_name: gemma
     litellm_params:
-      model: vertex_ai/qwen/qwen3_5-35b-a3b
-      vertex_project: YOUR_GCP_PROJECT_ID
-      vertex_location: REGION
+      model: openai/gemma-4-31b-it
+      api_base: os.environ/VERTEX_PROXY_URL
+      api_key: os.environ/VERTEX_API_KEY
 
 general_settings:
   # Master key for authenticating requests to the LiteLLM proxy
