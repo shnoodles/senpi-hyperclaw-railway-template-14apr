@@ -294,20 +294,36 @@ export async function startGateway(gatewayToken) {
   }
   // Always patch config to route through parser if it's running.
   // Patch provider baseUrl to route through the Gemma tool-parser proxy.
+  // Use direct JSON file editing instead of `openclaw config set` because
+  // hyphenated provider names (e.g. "ai-gateway") break dotted config paths.
   if (gemmaToolParserUrl) {
-    for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway"]) {
-      await runCmd(
-        OPENCLAW_NODE,
-        clawArgs([
-          "config",
-          "set",
-          "--json",
-          `models.providers.${provider}.baseUrl`,
-          `"${gemmaToolParserUrl}"`,
-        ])
-      );
+    try {
+      const cfgRaw = fs.readFileSync(configPath(), "utf8");
+      const cfg = JSON.parse(cfgRaw);
+      const providers = cfg?.models?.providers || {};
+      let patched = 0;
+      for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway"]) {
+        if (providers[provider]) {
+          providers[provider].baseUrl = gemmaToolParserUrl;
+          patched++;
+        }
+      }
+      if (patched > 0) {
+        if (!cfg.models) cfg.models = {};
+        cfg.models.providers = providers;
+        fs.writeFileSync(configPath(), JSON.stringify(cfg, null, 2));
+        console.log(`[gateway] Patched ${patched} provider(s) baseUrl → ${gemmaToolParserUrl} (direct JSON edit)`);
+      } else {
+        console.warn(`[gateway] No matching providers found in config to patch`);
+      }
+    } catch (err) {
+      console.error(`[gateway] Failed to patch provider baseUrl: ${err.message}`);
+      // Fallback to openclaw config set
+      for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway"]) {
+        await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "--json", `models.providers.${provider}.baseUrl`, `"${gemmaToolParserUrl}"`]));
+      }
     }
-    console.log(`[gateway] Patched models.providers.{vertex,vercel-ai-gateway}.baseUrl → ${gemmaToolParserUrl}`);
+    console.log(`[gateway] Provider baseUrl patching complete`);
   }
 
   const args = [
