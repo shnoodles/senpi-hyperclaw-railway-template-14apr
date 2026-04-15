@@ -40,6 +40,7 @@ export const DESIRED_MODELS = {
 
   // ── Vercel AI Gateway (Google) ──
   "vercel-ai-gateway/google/gemma-4-31b-it": { alias: "Gemma 4 31B (Vercel)" },
+  "ai-gateway/google/gemma-4-31b-it": { alias: "Gemma 4 31B (AI Gateway)" },
 
   // ── Google Gemini ──
   "google/gemini-3.1-pro-preview": { alias: "Gemini 3.1 Pro" },
@@ -208,4 +209,5 @@ export const AI_PROVIDER_MODEL_MAP = {
   together: "together/Qwen/Qwen3.5-27B",
   vertex: "vertex/gemma-4-31b-it",
   "vercel-ai-gateway": "vercel-ai-gateway/google/gemma-4-31b-it",
+  "ai-gateway": "ai-gateway/google/gemma-4-31b-it",
 };

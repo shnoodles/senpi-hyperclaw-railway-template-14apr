@@ -289,7 +289,7 @@ export async function startGateway(gatewayToken) {
   // Always patch config to route through parser if it's running.
   // Patch provider baseUrl to route through the Gemma tool-parser proxy.
   if (gemmaToolParserUrl) {
-    for (const provider of ["vertex", "vercel-ai-gateway"]) {
+    for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway"]) {
       await runCmd(
         OPENCLAW_NODE,
         clawArgs([

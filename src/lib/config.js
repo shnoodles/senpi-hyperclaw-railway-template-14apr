@@ -78,6 +78,7 @@ export const PROVIDER_BASE_URL = {
   together: "https://api.together.xyz/v1",
   vertex: process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1",
   "vercel-ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1",
+  "ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1",
 };
 
 /**
@@ -103,6 +104,7 @@ const PROVIDER_API_KEY_ENV = {
   "opencode-zen": "OPENCODE_API_KEY",
   vertex: "VERTEX_API_KEY",
   "vercel-ai-gateway": "VERCEL_API_KEY",
+  "ai-gateway": "VERCEL_API_KEY",
 };
 
 /**

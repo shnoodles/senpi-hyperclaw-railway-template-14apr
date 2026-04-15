@@ -373,20 +373,24 @@ function patchOpenClawJson() {
   }
 
   // Register Gemma models with Vercel AI Gateway (OpenAI-compatible)
-  if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vercel-ai-gateway") {
+  // Support both AI_PROVIDER=vercel-ai-gateway and AI_PROVIDER=ai-gateway
+  const aiProviderLower = process.env.AI_PROVIDER?.trim()?.toLowerCase() || "";
+  if (aiProviderLower === "vercel-ai-gateway" || aiProviderLower === "ai-gateway") {
     const gatewayUrl = process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1";
+    const gemmaModel = { id: "google/gemma-4-31b-it", name: "Gemma 4 31B IT (Vercel)", reasoning: false, contextWindow: 131072, maxTokens: 8192, compat: { supportsTools: true } };
     merged.models = merged.models || {};
     merged.models.mode = "merge";
     merged.models.providers = merged.models.providers || {};
-    merged.models.providers["vercel-ai-gateway"] = merged.models.providers["vercel-ai-gateway"] || {
-      baseUrl: gatewayUrl,
-      apiKey: "${VERCEL_API_KEY}",
-      api: "openai-completions",
-      models: [
-        { id: "google/gemma-4-31b-it", name: "Gemma 4 31B IT (Vercel)", reasoning: false, contextWindow: 131072, maxTokens: 8192, compat: { supportsTools: true } },
-      ],
-    };
-    console.log(`[bootstrap] Vercel AI Gateway provider configured at ${gatewayUrl}`);
+    // Register under both provider names so model resolution works regardless of prefix
+    for (const providerName of ["ai-gateway", "vercel-ai-gateway"]) {
+      merged.models.providers[providerName] = merged.models.providers[providerName] || {
+        baseUrl: gatewayUrl,
+        apiKey: "${VERCEL_API_KEY}",
+        api: "openai-completions",
+        models: [gemmaModel],
+      };
+    }
+    console.log(`[bootstrap] Vercel AI Gateway provider configured at ${gatewayUrl} (ai-gateway + vercel-ai-gateway)`);
   }
 
   // Register Gemma models with Vertex proxy (OpenAI-compatible via Railway proxy)
