@@ -365,7 +365,7 @@ function patchOpenClawJson() {
 
   // Register Gemma models with Vercel AI Gateway (OpenAI-compatible)
   if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vercel-ai-gateway") {
-    const gatewayUrl = process.env.VERCEL_AI_GATEWAY_URL || "https://api.vercel.ai/v1";
+    const gatewayUrl = process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1";
     merged.models = merged.models || {};
     merged.models.mode = "merge";
     merged.models.providers = merged.models.providers || {};

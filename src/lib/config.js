@@ -77,7 +77,7 @@ export const PROVIDER_BASE_URL = {
   deepseek: "https://api.deepseek.com/v1",
   together: "https://api.together.xyz/v1",
   vertex: process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1",
-  "vercel-ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://api.vercel.ai/v1",
+  "vercel-ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1",
 };
 
 /**
