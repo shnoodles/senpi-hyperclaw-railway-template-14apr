@@ -16,6 +16,7 @@ import {
   OPENCLAW_NODE,
   configPath,
   isConfigured,
+  PROVIDER_BASE_URL,
 } from "./lib/config.js";
 import { tokenLogSafe } from "./lib/auth.js";
 import { runCmd } from "./lib/runCmd.js";
@@ -275,9 +276,14 @@ export async function startGateway(gatewayToken) {
   // and converts Gemma 4's native <|tool_call> tokens into OpenAI tool_calls.
   // OpenClaw → gemmaToolParser (localhost:7299) → upstream vertex proxy → Vertex AI
   // Only start once — subsequent gateway restarts reuse the existing proxy.
-  if (process.env.AI_PROVIDER?.trim()?.toLowerCase() === "vertex" && !gemmaToolParserUrl) {
-    const upstreamUrl = process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1";
-    const upstreamKey = process.env.VERTEX_API_KEY || process.env.AI_API_KEY || "";
+  const providerLc = process.env.AI_PROVIDER?.trim()?.toLowerCase() || "";
+  const needsGemmaParser = ["vertex", "vercel-ai-gateway", "ai-gateway"].includes(providerLc);
+  if (needsGemmaParser && !gemmaToolParserUrl) {
+    const upstreamUrl = PROVIDER_BASE_URL[providerLc]
+      || process.env.VERCEL_AI_GATEWAY_URL
+      || process.env.VERTEX_PROXY_URL
+      || "https://ai-gateway.vercel.sh/v1";
+    const upstreamKey = process.env.VERCEL_API_KEY || process.env.VERTEX_API_KEY || process.env.AI_API_KEY || "";
     try {
       gemmaToolParserUrl = await startGemmaToolParser(upstreamUrl, upstreamKey);
       console.log(`[gateway] Gemma tool-parser proxy started at ${gemmaToolParserUrl}`);
