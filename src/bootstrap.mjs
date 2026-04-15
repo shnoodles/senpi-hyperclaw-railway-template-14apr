@@ -302,8 +302,17 @@ function patchOpenClawJson() {
     if (aiModel) available.push({ key: "AI_API_KEY", model: aiModel });
   }
 
-  // AI_MODEL env var overrides the provider default (used by fleet deployments)
-  const modelOverride = process.env.AI_MODEL?.trim();
+  // AI_MODEL env var overrides the provider default (used by fleet deployments).
+  // If AI_PROVIDER is set and the model doesn't already include a matching
+  // provider prefix, prepend the AI_PROVIDER so OpenClaw resolves auth correctly.
+  let modelOverride = process.env.AI_MODEL?.trim();
+  if (modelOverride && process.env.AI_PROVIDER?.trim()) {
+    const provider = process.env.AI_PROVIDER.trim().toLowerCase();
+    if (!modelOverride.startsWith(`${provider}/`)) {
+      modelOverride = `${provider}/${modelOverride}`;
+      console.log(`[bootstrap] AI_MODEL prefixed with provider: ${modelOverride}`);
+    }
+  }
 
   if (modelOverride) {
     merged.agents.defaults.model = {
