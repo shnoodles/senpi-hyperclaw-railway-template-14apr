@@ -158,6 +158,12 @@ const AUTH_GROUPS = [
     hint: "Privacy-focused API key",
     options: [{ value: "venice-api-key", label: "Venice AI API key" }],
   },
+  {
+    value: "novita",
+    label: "Novita.ai",
+    hint: "OpenAI-compatible (Qwen3.5 35B default)",
+    options: [{ value: "openai-api-key", label: "Novita.ai API key" }],
+  },
 ];
 
 export function createSetupRouter() {

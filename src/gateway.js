@@ -17,6 +17,7 @@ import {
   configPath,
   isConfigured,
   PROVIDER_BASE_URL,
+  AI_PROVIDER,
 } from "./lib/config.js";
 import { tokenLogSafe } from "./lib/auth.js";
 import { runCmd } from "./lib/runCmd.js";
@@ -342,13 +343,21 @@ export async function startGateway(gatewayToken) {
   let stderrTail = Buffer.alloc(0);
   const stderrMaxBytes = 4096;
 
+  const gatewayEnv = {
+    ...process.env,
+    OPENCLAW_STATE_DIR: STATE_DIR,
+    OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+  };
+  // Inject OPENAI_BASE_URL for OpenAI-compatible providers (e.g. novita)
+  const providerBaseUrl = PROVIDER_BASE_URL[AI_PROVIDER];
+  if (providerBaseUrl) {
+    gatewayEnv.OPENAI_BASE_URL = providerBaseUrl;
+    console.log(`[gateway] Injecting OPENAI_BASE_URL=${providerBaseUrl} for provider ${AI_PROVIDER}`);
+  }
+
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, clawArgs(args), {
     stdio: ["inherit", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      OPENCLAW_STATE_DIR: STATE_DIR,
-      OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-    },
+    env: gatewayEnv,
   });
 
   gatewayProc.stdout?.pipe(process.stdout);

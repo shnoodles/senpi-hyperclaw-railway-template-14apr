@@ -18,6 +18,7 @@ import {
   PROVIDER_TO_AUTH_CHOICE,
   PROVIDERS_WITHOUT_API_KEY,
   resolveEffectiveApiKey,
+  PROVIDER_BASE_URL,
   INTERNAL_GATEWAY_PORT,
   OPENCLAW_NODE,
 } from "./lib/config.js";
@@ -398,6 +399,13 @@ console.log(`[auto-onboard] directory created`);
       .replace(effectiveKey || "___NOKEY___", "***")
       .replace(gatewayToken, "<redacted>");
     console.log(`[auto-onboard] Running: openclaw ${autoOnboardCmdForLog}`);
+
+    // Inject OPENAI_BASE_URL for OpenAI-compatible providers (e.g. novita)
+    const providerBaseUrl = PROVIDER_BASE_URL[AI_PROVIDER];
+    if (providerBaseUrl) {
+      process.env.OPENAI_BASE_URL = providerBaseUrl;
+      console.log(`[auto-onboard] Injecting OPENAI_BASE_URL=${providerBaseUrl}`);
+    }
 
     const onboard = await runCmd(OPENCLAW_NODE, clawArgs(onboardArgs));
     const ok = onboard.code === 0 && isConfigured();

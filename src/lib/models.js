@@ -169,6 +169,9 @@ export const DESIRED_MODELS = {
   // ── Amazon Bedrock ──
   "amazon-bedrock/anthropic.claude-opus-4-6": { alias: "Opus 4.6 (Bedrock)" },
   "amazon-bedrock/anthropic.claude-sonnet-4-6": { alias: "Sonnet 4.6 (Bedrock)" },
+
+  // ── Novita.ai (OpenAI-compatible) ──
+  "novita/qwen/qwen3.5-35b-a3b": { alias: "Qwen3.5 35B (Novita)" },
 };
 
 /**
@@ -188,6 +191,7 @@ export const PROVIDER_DEFAULTS = [
   { key: "MOONSHOT_API_KEY", model: "moonshot/kimi-k2.5" },
   { key: "VENICE_API_KEY", model: "venice/llama-3.3-70b" },
   { key: "OPENROUTER_API_KEY", model: "openrouter/anthropic/claude-sonnet-4-5" },
+  { key: "NOVITA_API_KEY", model: "novita/qwen/qwen3.5-35b-a3b" },
 ];
 
 /**
@@ -210,4 +214,5 @@ export const AI_PROVIDER_MODEL_MAP = {
   vertex: "vertex/gemma-4-31b-it",
   "vercel-ai-gateway": "vercel-ai-gateway/google/gemma-4-31b-it",
   "ai-gateway": "ai-gateway/google/gemma-4-31b-it",
+  novita: "novita/qwen/qwen3.5-35b-a3b",
 };

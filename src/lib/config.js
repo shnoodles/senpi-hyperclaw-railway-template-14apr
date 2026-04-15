@@ -64,6 +64,7 @@ export const PROVIDER_TO_AUTH_CHOICE = {
   "opencode-zen": "opencode-zen",
   vertex: "openai-api-key",
   "vercel-ai-gateway": "openai-api-key",
+  novita: "openai-api-key",
 };
 
 /** Providers that use ADC/OAuth instead of an API key (AI_API_KEY not required). */
@@ -79,6 +80,7 @@ export const PROVIDER_BASE_URL = {
   vertex: process.env.VERTEX_PROXY_URL || "https://vertex-openai-proxy-production.up.railway.app/v1",
   "vercel-ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1",
   "ai-gateway": process.env.VERCEL_AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1",
+  novita: "https://api.novita.ai/openai",
 };
 
 /**
@@ -105,6 +107,7 @@ const PROVIDER_API_KEY_ENV = {
   vertex: "VERTEX_API_KEY",
   "vercel-ai-gateway": "VERCEL_API_KEY",
   "ai-gateway": "VERCEL_API_KEY",
+  novita: "NOVITA_API_KEY",
 };
 
 /**

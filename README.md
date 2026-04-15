@@ -64,6 +64,16 @@ Set `AI_PROVIDER` to one of the following values, and put the corresponding API 
 | `together` | Together AI (Qwen, Llama, DeepSeek) | Together API key |
 | `synthetic` | Synthetic (Anthropic-compatible) | Synthetic API key |
 | `opencode-zen` | OpenCode Zen (multi-model proxy) | OpenCode Zen API key |
+| `novita` | Novita.ai (OpenAI-compatible, Qwen3.5 35B) | Novita.ai API key |
+
+**Example** (Novita.ai — default for this fork):
+
+```
+AI_PROVIDER=novita
+AI_API_KEY=your-novita-api-key-here
+```
+
+The Novita.ai provider automatically routes requests to `https://api.novita.ai/openai` using the `qwen/qwen3.5-35b-a3b` model.
 
 **Example** (Anthropic):
 
