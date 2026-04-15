@@ -67,15 +67,11 @@ RUN apt-get update \
     file \
     git \
     python3 \
-    python3-pip \
     pkg-config \
     sudo \
     ripgrep \
   && rm -rf /var/lib/apt/lists/* \
   && ln -sf /usr/bin/python3 /usr/local/bin/python
-
-# Install LiteLLM proxy (Vertex AI -> OpenAI-compatible translation layer)
-RUN pip3 install --break-system-packages 'litellm[proxy]'
 
 WORKDIR /app
 
@@ -120,14 +116,12 @@ COPY workspace/TOOLS.md /opt/workspace-defaults/TOOLS.md
 
 COPY src ./src
 
-# LiteLLM config and startup script
-COPY litellm_config.yaml /app/litellm_config.yaml
-COPY scripts/start-with-litellm.sh /app/scripts/start-with-litellm.sh
-RUN chmod +x /app/scripts/start-with-litellm.sh
+# Startup script
+COPY scripts/start.sh /app/scripts/start.sh
+RUN chmod +x /app/scripts/start.sh
 
 ENV PORT=8080
 ENV MCPORTER_CONFIG="/data/.openclaw/config/mcporter.json"
 EXPOSE 8080
 
-# Use combined startup script (launches LiteLLM proxy, then OpenClaw)
-CMD ["/app/scripts/start-with-litellm.sh"]
+CMD ["/app/scripts/start.sh"]

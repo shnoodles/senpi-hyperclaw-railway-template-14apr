@@ -287,9 +287,9 @@ export async function startGateway(gatewayToken) {
     }
   }
   // Always patch config to route through parser if it's running.
-  // Patch BOTH vertex and vertex-litellm providers (LiteLLM startup script creates vertex-litellm).
+  // Patch provider baseUrl to route through the Gemma tool-parser proxy.
   if (gemmaToolParserUrl) {
-    for (const provider of ["vertex", "vertex-litellm"]) {
+    for (const provider of ["vertex", "vercel-ai-gateway"]) {
       await runCmd(
         OPENCLAW_NODE,
         clawArgs([
@@ -301,7 +301,7 @@ export async function startGateway(gatewayToken) {
         ])
       );
     }
-    console.log(`[gateway] Patched models.providers.{vertex,vertex-litellm}.baseUrl → ${gemmaToolParserUrl}`);
+    console.log(`[gateway] Patched models.providers.{vertex,vercel-ai-gateway}.baseUrl → ${gemmaToolParserUrl}`);
   }
 
   const args = [
