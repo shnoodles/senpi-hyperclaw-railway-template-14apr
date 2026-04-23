@@ -25,13 +25,11 @@ import {
   startAutoApprovalLoop,
   stopAutoApprovalLoop,
 } from "./lib/deviceAuth.js";
-import { startGemmaToolParser } from "./lib/gemmaToolParser.js";
 
 const MCPORTER_CONFIG = path.join(STATE_DIR, "config", "mcporter.json");
 
 let gatewayProc = null;
 let gatewayStarting = null;
-let gemmaToolParserUrl = null; // Track if parser is already running
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -270,61 +268,6 @@ export async function startGateway(gatewayToken) {
     console.warn(
       `[gateway] WARNING: dangerouslyDisableDeviceAuth is ${devAuth} — cron/agent may get 1008 pairing required`
     );
-  }
-
-  // ── Gemma 4 Tool-Call Parser Proxy ──────────────────────────────────────
-  // If AI_PROVIDER=vertex, start a local proxy that intercepts LLM responses
-  // and converts Gemma 4's native <|tool_call> tokens into OpenAI tool_calls.
-  // OpenClaw → gemmaToolParser (localhost:7299) → upstream vertex proxy → Vertex AI
-  // Only start once — subsequent gateway restarts reuse the existing proxy.
-  const providerLc = process.env.AI_PROVIDER?.trim()?.toLowerCase() || "";
-  const needsGemmaParser = ["vertex", "vercel-ai-gateway", "ai-gateway", "senpi-gemma-4"].includes(providerLc);
-  if (needsGemmaParser && !gemmaToolParserUrl) {
-    const upstreamUrl = PROVIDER_BASE_URL[providerLc]
-      || process.env.VERCEL_AI_GATEWAY_URL
-      || process.env.VERTEX_PROXY_URL
-      || "https://ai-gateway.vercel.sh/v1";
-    const upstreamKey = process.env.VERCEL_API_KEY || process.env.VERTEX_API_KEY || process.env.AI_API_KEY || "";
-    try {
-      gemmaToolParserUrl = await startGemmaToolParser(upstreamUrl, upstreamKey);
-      console.log(`[gateway] Gemma tool-parser proxy started at ${gemmaToolParserUrl}`);
-    } catch (err) {
-      console.error(`[gateway] Gemma tool-parser proxy failed to start: ${err.message}`);
-      console.error(`[gateway] Falling back to direct upstream connection`);
-    }
-  }
-  // Always patch config to route through parser if it's running.
-  // Patch provider baseUrl to route through the Gemma tool-parser proxy.
-  // Use direct JSON file editing instead of `openclaw config set` because
-  // hyphenated provider names (e.g. "ai-gateway") break dotted config paths.
-  if (gemmaToolParserUrl) {
-    try {
-      const cfgRaw = fs.readFileSync(configPath(), "utf8");
-      const cfg = JSON.parse(cfgRaw);
-      const providers = cfg?.models?.providers || {};
-      let patched = 0;
-      for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway", "senpi-gemma-4"]) {
-        if (providers[provider]) {
-          providers[provider].baseUrl = gemmaToolParserUrl;
-          patched++;
-        }
-      }
-      if (patched > 0) {
-        if (!cfg.models) cfg.models = {};
-        cfg.models.providers = providers;
-        fs.writeFileSync(configPath(), JSON.stringify(cfg, null, 2));
-        console.log(`[gateway] Patched ${patched} provider(s) baseUrl → ${gemmaToolParserUrl} (direct JSON edit)`);
-      } else {
-        console.warn(`[gateway] No matching providers found in config to patch`);
-      }
-    } catch (err) {
-      console.error(`[gateway] Failed to patch provider baseUrl: ${err.message}`);
-      // Fallback to openclaw config set
-      for (const provider of ["vertex", "vercel-ai-gateway", "ai-gateway", "senpi-gemma-4"]) {
-        await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "--json", `models.providers.${provider}.baseUrl`, `"${gemmaToolParserUrl}"`]));
-      }
-    }
-    console.log(`[gateway] Provider baseUrl patching complete`);
   }
 
   const args = [
